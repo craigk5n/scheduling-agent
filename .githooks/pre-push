@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#
+# Pre-push hook: run the full check gate before allowing a push.
+# Installed by scripts/install-hooks.sh (sets core.hooksPath=.githooks).
+# Bypass in a pinch with:  git push --no-verify
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+echo "pre-push: running scripts/ci.sh (bypass with --no-verify)"
+exec "${repo_root}/scripts/ci.sh" all

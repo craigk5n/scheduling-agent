@@ -26,17 +26,20 @@ jobs:
       - name: Sync dependencies (locked)
         run: uv sync --frozen
 
+      # Each step calls the same scripts/ci.sh that developers run locally,
+      # so local checks and CI can never drift. Split by stage for per-step
+      # pass/fail visibility in the GitHub UI.
       - name: Lint (ruff)
-        run: uv run ruff check .
+        run: bash scripts/ci.sh lint
 
       - name: Format check (ruff)
-        run: uv run ruff format --check .
+        run: bash scripts/ci.sh format
 
       - name: Type check (mypy strict)
-        run: uv run mypy
+        run: bash scripts/ci.sh type
 
       - name: Security scan (bandit)
-        run: uv run bandit -q -r src
+        run: bash scripts/ci.sh security
 
       - name: Tests + coverage gate
-        run: uv run pytest
+        run: bash scripts/ci.sh test

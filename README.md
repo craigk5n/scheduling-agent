@@ -44,12 +44,22 @@ Phase 0. Live-calendar URLs, tokens, and API keys are never committed.
 ## Development
 
 ```bash
-uv sync                       # create the venv (Python 3.12) and install deps
-uv run pytest                 # tests + 80% coverage gate
-uv run ruff check . && uv run ruff format --check .
-uv run mypy                   # strict
-uv run bandit -q -r src       # security scan
+uv sync                    # create the venv (Python 3.12) and install deps
+scripts/install-hooks.sh   # one-time: run the gate automatically on git push
 ```
+
+### Run CI locally
+
+`scripts/ci.sh` is the single source of truth — GitHub Actions runs the
+exact same script, so local checks and CI can't drift.
+
+```bash
+scripts/ci.sh              # full gate: ruff, format, mypy, bandit, pytest+coverage
+scripts/ci.sh test         # a single stage: lint | format | type | security | test
+```
+
+Once hooks are installed, the full gate also runs on every `git push`
+and blocks it on failure (bypass in a pinch with `git push --no-verify`).
 
 ## License
 
