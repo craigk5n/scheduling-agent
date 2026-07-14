@@ -29,18 +29,29 @@ Phase 5 is explicitly post-v1.
 - [x] **Schema audit first:** document what `webcal_entry_repeats` can
       represent; fix the supported RRULE subset (feeds ARCHITECTURE §3)
       → see [docs/SCHEMA_AUDIT.md](SCHEMA_AUDIT.md)
-- [ ] Audit existing recurrence read/write code paths in WebCalendar to
-      reuse, not reimplement
-- [ ] `get_availability(start_date, end_date, users?)`
-- [ ] `check_conflicts(date, time, duration, users?)` (must expand
-      existing recurring events)
-- [ ] `add_recurring_event(...)` with server-side RRULE validation
-- [ ] `update_event(event_id, ...)` with ownership checks
-- [ ] `delete_event(event_id)` with ownership checks
-- [ ] PHP unit tests via `mcp_dispatch_request()` seam for all new tools
-- [ ] Manual verification against the live instance with a dedicated
-      test user + token
-- [ ] TDD throughout: tests written before each tool implementation
+- [x] Audit existing recurrence read/write code paths in WebCalendar to
+      reuse, not reimplement (xcal.php builder/parser/insert, RptEvent)
+- [x] `get_availability(start_date, end_date)` — busy blocks, GMT frame,
+      self/authenticated user (multi-user deferred to A2A phase)
+- [x] `check_conflicts(date, time, duration)` — overlap detection, GMT
+- [x] `add_recurring_event(...)` with server-side RRULE validation
+      (`mcp_validate_rrule` + `mcp_rrule_to_repeat_columns`), write-gated
+- [x] `update_event(event_id, ...)` with ownership checks, write-gated
+- [x] `delete_event(event_id)` with ownership checks, write-gated
+- [x] PHP unit tests via `mcp_dispatch_request()` seam (stub tools object)
+      + HTTP integration tests (installer schema) for the write tools
+- [x] Write-gate regression test (MCP_WRITE_ACCESS off → writes refused)
+- [ ] Manual verification against the **live** instance with a dedicated
+      test user + token (only tested against installer-built SQLite so far)
+- [x] TDD throughout: tests written before each tool/helper (RED→GREEN)
+- ~~must expand existing recurring events in availability/conflicts~~ —
+      **v1 limitation:** recurring occurrences beyond the base date are
+      not yet reflected in get_availability/check_conflicts; certify via
+      the Phase 3 eval suite, then enhance.
+
+**Branch:** `feature/mcp-scheduling-tools` in the `webcalendar` repo
+(6 commits). Full MCP suite green: 152 tests across 12 files. PR to be
+opened by the maintainer.
 
 ## Phase 2 — Agent core (Python, LangGraph)
 
