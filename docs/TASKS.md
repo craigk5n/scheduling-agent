@@ -26,8 +26,9 @@ Phase 5 is explicitly post-v1.
 
 ## Phase 1 — MCP surface extension (PHP, `webcalendar` repo)
 
-- [ ] **Schema audit first:** document what `webcal_entry_repeats` can
+- [x] **Schema audit first:** document what `webcal_entry_repeats` can
       represent; fix the supported RRULE subset (feeds ARCHITECTURE §3)
+      → see [docs/SCHEMA_AUDIT.md](SCHEMA_AUDIT.md)
 - [ ] Audit existing recurrence read/write code paths in WebCalendar to
       reuse, not reimplement
 - [ ] `get_availability(start_date, end_date, users?)`

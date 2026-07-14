@@ -111,10 +111,21 @@ crosses a node boundary.
 - **`WriteResult`** — event id(s), verification status.
 
 RRULE policy: agent emits a documented **subset** of RFC 5545 RRULE
-(FREQ, INTERVAL, BYDAY, BYMONTHDAY, UNTIL/COUNT, WKST) matched to what
-`webcal_entry_repeats` can represent. The subset is enforced by
-validation, not convention. (Schema audit in Phase 1 fixes the exact
-boundary.)
+matched to what `webcal_entry_repeats` can represent and correctly
+expand. The subset is enforced by validation, not convention. The
+exact boundary is fixed by the Phase 1 schema audit
+([docs/SCHEMA_AUDIT.md](SCHEMA_AUDIT.md)):
+
+- **FREQ** ∈ {DAILY, WEEKLY, MONTHLY, YEARLY} — no sub-daily.
+- **Parts:** INTERVAL, COUNT, UNTIL (COUNT/UNTIL mutually exclusive),
+  BYMONTH, BYMONTHDAY, BYDAY (with offsets), BYSETPOS, BYWEEKNO, WKST.
+- **EXDATE/RDATE** via `webcal_entry_repeats_not`.
+- **Excluded:** BYHOUR/BYMINUTE/BYSECOND (ignored by WebCalendar);
+  BYYEARDAY (write/expand OK but not export-safe — avoid in v1);
+  multiple RRULEs per event (schema allows only one).
+- **Caveats** the validator/tool must honor: UNTIL stored local (DST
+  care), `COUNT=999` is an infinite sentinel, `BY*` column width
+  bounds. Full detail + evidence in the audit doc.
 
 Timezones: every datetime is timezone-aware (`zoneinfo`). WebCalendar
 stores GMT and converts to the user's TZ (as `mcp.php` already does for
