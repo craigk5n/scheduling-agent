@@ -1,0 +1,42 @@
+# Credentials & local settings — never commit (live calendar tokens, API keys)
+.env
+.env.*
+!.env.example
+*.local.yaml
+*.local.yml
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# LangGraph checkpoints / local state
+*.sqlite
+*.sqlite3
+*.db
+checkpoints/
+
+# Eval artifacts (reports are CI artifacts, not repo contents)
+eval-reports/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Vim
+*.swp
+*.swo
