@@ -8,16 +8,21 @@ Phase 5 is explicitly post-v1.
 
 ## Phase 0 — Project scaffolding (`scheduling-agent`)
 
-- [ ] Init git repo, `pyproject.toml` (uv), Python 3.12
-- [ ] Tooling: ruff, mypy, pytest configured; pre-commit optional
-- [ ] GitHub repo + Actions skeleton (lint, type, test)
-- [ ] `README.md` stub with the one-liner and architecture sketch
-- [ ] `.env.example` (MODEL_PROVIDER, ANTHROPIC_API_KEY,
+- [x] Init git repo, `pyproject.toml` (uv), Python 3.12 (pinned via
+      `.python-version`; venv confirmed 3.12.13)
+- [x] Tooling: ruff, mypy (strict), pytest + pytest-cov, bandit configured
+- [x] GitHub repo + Actions CI (ruff, ruff-format, mypy, bandit, pytest
+      with 80% coverage gate)
+- [x] `README.md` with one-liner, architecture sketch, dev section
+- [x] `.env.example` (MODEL_PROVIDER, ANTHROPIC_API_KEY,
       OPENROUTER_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, MCP_URL, MCP_TOKEN,
       LANGSMITH_*) — names only, never values
-- [ ] `.gitignore` covering `.env`, checkpoints DB, and eval artifacts
+- [x] `.gitignore` covering `.env`, checkpoints DB, and eval artifacts
       **in the first commit** (live-calendar credentials must never be
       committable)
+- [x] First TDD unit: settings loader (`scheduling_agent.settings`) —
+      provider selection + required-credential validation, SecretStr
+      wrapping, 12 tests, 100% coverage
 
 ## Phase 1 — MCP surface extension (PHP, `webcalendar` repo)
 
