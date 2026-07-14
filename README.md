@@ -41,6 +41,16 @@ All credentials come from the environment (`.env`, gitignored). A
 `.env.example` documenting variable **names only** will land in
 Phase 0. Live-calendar URLs, tokens, and API keys are never committed.
 
+## Development
+
+```bash
+uv sync                       # create the venv (Python 3.12) and install deps
+uv run pytest                 # tests + 80% coverage gate
+uv run ruff check . && uv run ruff format --check .
+uv run mypy                   # strict
+uv run bandit -q -r src       # security scan
+```
+
 ## License
 
-MIT (to be added with the first code commit).
+[MIT](LICENSE) © 2026 Craig Knudsen.
