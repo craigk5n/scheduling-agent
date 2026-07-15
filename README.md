@@ -44,9 +44,12 @@ flowchart LR
   a human-in-the-loop interrupt before every write, and a reject→replan
   loop.
 - **Models:** pluggable via `MODEL_PROVIDER` — Anthropic API key,
-  OpenRouter API key, or an Anthropic Pro/Max plan via the `claude` CLI.
-  Structured output goes through one provider-agnostic
-  validate-and-repair loop so even the subscription backend participates.
+  OpenRouter, an Anthropic Pro/Max plan via the `claude` CLI, or a **local
+  model** through **ollama** / **LM Studio** (OpenAI-compatible, no API
+  key). Structured output goes through one provider-agnostic
+  validate-and-repair loop, so no model needs tool-calling or MCP support
+  — the graph does orchestration in code and the model only maps
+  natural language to a validated `ScheduleProposal`.
 - **Correctness:** every recurrence is built and validated against the
   exact subset WebCalendar can store/expand (a Python twin of the PHP
   validator), with DST-correct expansion previews via `dateutil`.
@@ -115,10 +118,16 @@ Live-calendar URLs, tokens, and API keys are never committed.
 
 | Variable | Purpose |
 |---|---|
-| `MODEL_PROVIDER` | `anthropic` \| `openrouter` \| `claude-subscription` |
-| `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` | credential for the selected provider |
-| `MODEL_NAME` | optional model override |
+| `MODEL_PROVIDER` | `anthropic` \| `openrouter` \| `claude-subscription` \| `ollama` \| `lmstudio` |
+| `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` | credential for the selected provider (local providers need none) |
+| `MODEL_NAME` | model tag/id (e.g. `qwen2.5:32b` for ollama); optional |
+| `OLLAMA_BASE_URL` / `LMSTUDIO_BASE_URL` | override the local endpoint (defaults `:11434/v1` / `:1234/v1`) |
 | `MCP_URL` / `MCP_TOKEN` | WebCalendar `mcp.php` endpoint + API token |
+
+> **Local models:** small models may struggle with strict JSON and RRULE
+> reasoning. Measure any model with `python -m scheduling_agent.evals
+> --mode agent` (the eval suite scores it on the golden set). Ollama's
+> constrained-JSON mode is enabled automatically for reliability.
 
 ## Design decisions
 
