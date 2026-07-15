@@ -1,0 +1,37 @@
+# Local stack: the scheduling agent talking to WebCalendar over MCP.
+# Values are interpolated from a root .env (copy .env.example first).
+services:
+  agent:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      MODEL_NAME: ${MODEL_NAME:-}
+      # Point at WebCalendar's mcp.php directly, or at the hub's /mcp proxy.
+      MCP_URL: ${MCP_URL:-http://webcalendar/mcp.php}
+      MCP_TOKEN: ${MCP_TOKEN:-}
+      # Optional LangSmith tracing.
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+    depends_on:
+      - webcalendar
+
+  # WebCalendar with the MCP server enabled. Build from craigk5n/webcalendar
+  # (or webcalendar-docker) and set a per-user API token + MCP_WRITE_ACCESS=Y.
+  webcalendar:
+    image: k5n/webcalendar:latest
+    ports:
+      - "8080:80"
+
+  # Optional: route the agent's MCP traffic through k5n-mcp-hub to chaos-test
+  # fault handling (see docs/CHAOS.md). Enable with `--profile chaos` and set
+  # MCP_URL to the hub's /mcp endpoint. Build its image per its README.
+  mcp-hub:
+    image: k5n-mcp-hub:latest
+    ports:
+      - "8081:8080"
+    profiles: ["chaos"]
