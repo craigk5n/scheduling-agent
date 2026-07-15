@@ -7,13 +7,22 @@ to a live [WebCalendar](https://github.com/craigk5n/webcalendar)
 instance via MCP — with human approval before every write, an eval
 suite for RRULE/DST correctness, and full tracing.
 
-**Status: Phases 0–4 complete** — agent core, MCP tools (merged into
-[WebCalendar](https://github.com/craigk5n/webcalendar) via
-[#668](https://github.com/craigk5n/webcalendar/pull/668)), eval suite,
-observability, chaos tests, CLI + web UI, and Docker. Everything is
-tested offline (**156 tests, 100% coverage**; ruff, mypy `--strict`,
-bandit). The one deferred piece is verification against a **live**
-calendar instance. Docs:
+**Status: Phases 0–4 complete and verified against a live calendar.**
+Agent core, eval suite, observability, chaos tests, CLI + web UI, and Docker,
+tested offline (**186 tests, 100% coverage**; ruff, mypy `--strict`, bandit).
+The supporting MCP tools are merged into
+[WebCalendar](https://github.com/craigk5n/webcalendar):
+[#668](https://github.com/craigk5n/webcalendar/pull/668) (scheduling tools),
+[#670](https://github.com/craigk5n/webcalendar/pull/670) (timed `add_event`),
+and [#671](https://github.com/craigk5n/webcalendar/pull/671) (read tools
+exclude UI-deleted events).
+
+Since then it has run against a **live** WebCalendar instance, which drove a
+series of fixes: local timezone handling for listing queries, time-preserving
+date moves, description-based event lookup, and native `json_schema`
+structured output. Providers now include a local-model path
+(**ollama** / **LM Studio**) alongside the Anthropic API, OpenRouter, and an
+Anthropic Pro/Max subscription. Docs:
 
 - [docs/PRD.md](docs/PRD.md) — goals, requirements, decisions, risks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, agent
@@ -46,10 +55,11 @@ flowchart LR
 - **Models:** pluggable via `MODEL_PROVIDER` — Anthropic API key,
   OpenRouter, an Anthropic Pro/Max plan via the `claude` CLI, or a **local
   model** through **ollama** / **LM Studio** (OpenAI-compatible, no API
-  key). Structured output goes through one provider-agnostic
-  validate-and-repair loop, so no model needs tool-calling or MCP support
-  — the graph does orchestration in code and the model only maps
-  natural language to a validated `ScheduleProposal`.
+  key). Structured output uses native `json_schema` where the provider
+  supports it and falls back to a provider-agnostic validate-and-repair loop
+  otherwise, so no model needs tool-calling or MCP support — the graph does
+  orchestration in code and the model only maps natural language to a
+  validated `ScheduleProposal`.
 - **Correctness:** every recurrence is built and validated against the
   exact subset WebCalendar can store/expand (a Python twin of the PHP
   validator), with DST-correct expansion previews via `dateutil`.
@@ -145,10 +155,11 @@ Live-calendar URLs, tokens, and API keys are never committed.
 - **HITL is a real graph interrupt.** Writes pause at a LangGraph
   `interrupt`; state is checkpointed to SQLite, so an approval survives a
   process restart (proven in tests). Rejections loop back and replan.
-- **One repair loop for all providers.** Structured output is produced by
-  a provider-agnostic validate-and-repair loop rather than native tool
-  calling, so the Pro/Max subscription backend works on equal footing —
-  and provider differences become a measured eval number, not a bug class.
+- **Native structured output, with a universal fallback.** Providers that
+  support it are constrained via native `json_schema`; the rest (e.g. the
+  Pro/Max subscription CLI) use a provider-agnostic validate-and-repair loop,
+  so every backend works on equal footing — and provider differences become a
+  measured eval number, not a bug class.
 - **GMT at the tool boundary.** The scheduling MCP tools operate in the
   storage frame; the agent owns local↔GMT (with DST-correct expansion),
   keeping the PHP side simple.
@@ -160,11 +171,12 @@ Live-calendar URLs, tokens, and API keys are never committed.
   golden dataset (20/20); a real provider is measured opt-in via
   `--mode agent`.
 
-**Known v1 limitations (documented):** one-off `create` events are stored
-untimed (the `add_event` MCP tool takes no time yet); availability and
-conflict checks don't expand recurring occurrences past the base date.
-Both are slated for a backend follow-up and are what live-instance eval
-runs will quantify.
+**Known v1 limitations (documented):** conflict checks don't expand recurring
+occurrences past the base date, so a proposed slot is only checked against the
+first instance of an existing series. Slated for a backend follow-up and
+quantified by live-instance eval runs. (The earlier untimed one-off `create`
+limitation is resolved — `add_event` now takes a time, WebCalendar
+[#670](https://github.com/craigk5n/webcalendar/pull/670).)
 
 ## Development
 
