@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess  # nosec B404 - used only for the local `claude` CLI, no shell
+import tempfile
 from collections.abc import Sequence
 from typing import Any
 
@@ -25,6 +26,14 @@ from scheduling_agent.settings import ModelProvider, Settings
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
 DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-5"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# System prompt for the subscription (claude CLI) path: strip the coding-agent
+# persona so it behaves as a plain structured-output completion.
+_SUBSCRIPTION_SYSTEM_PROMPT = (
+    "You are a structured-output service. Return exactly and only what the user "
+    "asks for, which is a single JSON object. No preamble, no explanation, no "
+    "code fences, no follow-up questions, and do not use any tools."
+)
 
 
 def get_chat_model(
@@ -105,13 +114,30 @@ class ClaudeSubscriptionChatModel(BaseChatModel):
             **os.environ,
             "CLAUDE_CODE_OAUTH_TOKEN": self.oauth_token.get_secret_value(),
         }
-        completed = subprocess.run(  # nosec B603 - resolved path, no shell; token via env
-            [claude, "-p", prompt, "--model", self.model, "--output-format", "text"],
-            capture_output=True,
-            text=True,
-            env=env,
-            check=True,
-        )
+        # `claude -p` is a full Claude Code agent: by default it loads the cwd's
+        # project (code, CLAUDE.md) and answers like a coding assistant. Force it
+        # to behave as a plain completion: run in an empty directory, replace the
+        # system prompt, and drop the dynamic project/env sections.
+        with tempfile.TemporaryDirectory() as workdir:
+            completed = subprocess.run(  # nosec B603 - resolved path, no shell; token via env
+                [
+                    claude,
+                    "-p",
+                    prompt,
+                    "--model",
+                    self.model,
+                    "--output-format",
+                    "text",
+                    "--system-prompt",
+                    _SUBSCRIPTION_SYSTEM_PROMPT,
+                    "--exclude-dynamic-system-prompt-sections",
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=workdir,
+                check=True,
+            )
         return completed.stdout.strip()
 
 
