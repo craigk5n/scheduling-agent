@@ -144,9 +144,12 @@ def run_cli(argv: list[str] | None = None) -> int:
     if args.mode == "reference":
         report = run_evals(cases, reference_proposer, provider="reference")
     else:  # pragma: no cover - needs a provider API key + network
+        from dotenv import load_dotenv
+
         from scheduling_agent.providers import get_chat_model
         from scheduling_agent.settings import Settings
 
+        load_dotenv()
         settings = Settings.from_env()
         report = run_evals(
             cases,

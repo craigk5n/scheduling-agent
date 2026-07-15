@@ -79,12 +79,14 @@ def main() -> None:  # pragma: no cover - reads env, opens sqlite, serves HTTP
     import sqlite3
 
     import uvicorn
+    from dotenv import load_dotenv
     from langgraph.checkpoint.sqlite import SqliteSaver
 
     from scheduling_agent.cli import build_cli_agent
     from scheduling_agent.observability import configure_logging
     from scheduling_agent.settings import Settings
 
+    load_dotenv()
     configure_logging()
     settings = Settings.from_env()
     mcp_url = os.environ.get("MCP_URL", "").strip()

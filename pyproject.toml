@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Craig Knudsen" }]
 dependencies = [
     "pydantic>=2.7",
+    "python-dotenv>=1.0",
     "python-dateutil>=2.9",
     "langgraph>=0.2",
     "langgraph-checkpoint-sqlite>=2.0",

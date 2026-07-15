@@ -97,6 +97,9 @@ def run_repl(
 
 
 def main() -> None:  # pragma: no cover - reads env, opens sqlite, network I/O
+    from dotenv import load_dotenv
+
+    load_dotenv()  # load .env into the environment before reading settings
     configure_logging()
     settings = Settings.from_env()
     mcp_url = os.environ.get("MCP_URL", "").strip()
