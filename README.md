@@ -125,9 +125,10 @@ Live-calendar URLs, tokens, and API keys are never committed.
 | `MCP_URL` / `MCP_TOKEN` | WebCalendar `mcp.php` endpoint + API token |
 
 > **Local models:** small models may struggle with strict JSON and RRULE
-> reasoning. Measure any model with `python -m scheduling_agent.evals
-> --mode agent` (the eval suite scores it on the golden set). Ollama's
-> constrained-JSON mode is enabled automatically for reliability.
+> reasoning; the validate-and-repair loop retries on invalid output, but a
+> capable instruct model helps. Measure any model with
+> `python -m scheduling_agent.evals --mode agent` (scores it on the golden
+> set).
 
 ## Design decisions
 

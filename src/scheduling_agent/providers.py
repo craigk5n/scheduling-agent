@@ -79,14 +79,15 @@ def get_chat_model(
     if provider in (ModelProvider.OLLAMA, ModelProvider.LMSTUDIO):
         from langchain_openai import ChatOpenAI
 
-        # Local models via their OpenAI-compatible endpoint. Constrain output to
-        # a JSON object so weaker local models reliably satisfy the schema.
+        # Local models via their OpenAI-compatible endpoint. We do NOT set a
+        # construction-time response_format: ollama accepts `json_object` but
+        # LM Studio rejects it (only `json_schema`/`text`). The validate-and-
+        # repair loop enforces JSON uniformly instead.
         params = {
             "model": model or settings.model or DEFAULT_LOCAL_MODEL[provider],
             "api_key": SecretStr(key),
             "base_url": settings.base_url or DEFAULT_BASE_URL[provider],
             "temperature": temperature,
-            "model_kwargs": {"response_format": {"type": "json_object"}},
         }
         return ChatOpenAI(**params)
 
