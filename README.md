@@ -57,6 +57,23 @@ for your approval** before writing anything. Type `quit` to exit.
 Everything runs offline in tests via an in-memory calendar and a fake
 model, so no API key or live instance is needed to develop.
 
+## Evals
+
+A golden dataset (`src/scheduling_agent/evals/cases.yaml`, 20 cases —
+recurrence, avoid-Fridays constraints, BYSETPOS, DST spring-forward/
+fall-back, update/delete/query) is scored by deterministic checks
+(RRULE validity, occurrence expansion, weekday constraints, DST
+local-hour, conflict awareness).
+
+```bash
+uv run python -m scheduling_agent.evals --mode reference   # no LLM; runs in CI
+uv run python -m scheduling_agent.evals --mode agent        # measures a real provider
+```
+
+Reference mode gates CI (any regression fails) and uploads a
+JSON + markdown report artifact. Agent mode runs the real graph against
+your configured provider to measure model quality.
+
 ## Configuration
 
 All credentials come from the environment (`.env`, gitignored); see

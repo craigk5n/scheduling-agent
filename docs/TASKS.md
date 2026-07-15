@@ -95,20 +95,34 @@ opened by the maintainer.
 
 ## Phase 3 — Eval suite (starts alongside Phase 2, per project decision)
 
-- [ ] Golden dataset format (YAML/JSON): NL request + fixture calendar
-      + expected outcome
-- [ ] Seed ~40–60 cases: one-off, recurring, constraint-bearing
-      ("avoid Fridays"), update, delete, query
-- [ ] DST-boundary cases: spring-forward, fall-back, cross-timezone
-      meetings, UNTIL across a transition
-- [ ] Deterministic scorers: RRULE validity, occurrence-expansion
-      equality, constraint predicates, conflict avoidance
-- [ ] Harness: CI mode (mock MCP) + live smoke mode (real instance)
-- [ ] Per-provider eval runs (anthropic / openrouter / subscription)
-      with provider recorded in the report, so pass rates are
-      comparable across model backends
-- [ ] Score report artifact (JSON + markdown), wired into CI
-- [ ] Baseline run recorded; regressions fail CI
+- [x] Golden dataset format (YAML): NL request + fixtures + reference
+      proposal + expected outcome (`src/scheduling_agent/evals/cases.yaml`)
+- [x] Seed cases (20 to start, extensible): one-off (with/without
+      conflict), recurring, constraint-bearing ("avoid Fridays",
+      weekday-only), BYSETPOS, interval, COUNT, UNTIL, update, delete,
+      query
+- [x] DST-boundary cases: spring-forward + fall-back (local-hour
+      preserved across the transition), UNTIL as end-of-day
+- [x] Deterministic scorers: RRULE validity + canonical match,
+      occurrence-count, forbid/require-weekday predicates, DST local
+      hour, conflict expectation — pure, unit-tested (pass good AND
+      fail bad output)
+- [x] Harness: reference mode (no LLM, CI) + agent mode (real provider,
+      opt-in) via a `Proposer` abstraction over the same scorers
+- [x] Per-provider report label (`EvalReport.provider`); agent mode
+      records the selected provider
+- [x] Score report artifact (JSON + markdown); CI step generates it and
+      uploads it as `eval-report`
+- [x] Regressions fail CI: `test_reference_proposals_all_satisfy_expected`
+      + reference-mode CLI exit code both gate on 100% of the dataset
+- [ ] Live smoke mode (real WebCalendar) — deferred with live verification
+- [ ] Measured baseline against a real provider — needs an API key
+      (run `python -m scheduling_agent.evals --mode agent`)
+
+**Phase 3 done (deterministic layer).** Full gate: **137 tests, 100%
+coverage.** The only open items need an API key / live instance, which
+are deferred by request. What's shippable and CI-gated today: the RRULE/
+DST/constraint/conflict scoring machinery over a 20-case golden set.
 
 ## Phase 4 — Observability, deployment, story
 

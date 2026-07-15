@@ -43,3 +43,16 @@ jobs:
 
       - name: Tests + coverage gate
         run: bash scripts/ci.sh test
+
+      # Eval suite in reference mode (no LLM): scores the golden dataset and
+      # writes a report. Exits non-zero if any case regresses.
+      - name: Eval report (reference mode)
+        run: uv run python -m scheduling_agent.evals --mode reference --out eval-reports
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: eval-reports/
+          if-no-files-found: ignore
