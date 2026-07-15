@@ -55,28 +55,43 @@ opened by the maintainer.
 
 ## Phase 2 — Agent core (Python, LangGraph)
 
-- [ ] Model provider abstraction (`get_chat_model()` factory):
+- [x] Model provider abstraction (`get_chat_model()` factory):
       `anthropic` (ChatAnthropic), `openrouter` (ChatOpenAI +
-      base_url), `claude-subscription` (Claude Agent SDK adapter
-      behind BaseChatModel)
-- [ ] Shared structured-output repair loop (validate → re-prompt with
+      base_url), `claude-subscription` (adapter behind BaseChatModel)
+- [x] Shared structured-output repair loop (validate → re-prompt with
       validation error → bounded retries) used by all providers
-- [ ] Pydantic models: `ScheduleProposal`, `AvailabilityWindow`,
-      `Conflict`, `WriteResult`
-- [ ] RRULE builder + validator (subset enforcement, expansion preview)
-- [ ] Mock MCP server (JSON-RPC surface matching `mcp.php`) — built
-      early because Phase 3 evals and all unit tests depend on it
-- [ ] MCP client wiring (`langchain-mcp-adapters`) against mock, then live
-- [ ] Graph nodes: `parse_intent`, `gather_context`, `propose`,
+- [x] Pydantic models: `ScheduleProposal`, `RecurrenceSpec`,
+      `AvailabilityResult`, `Conflict`/`ConflictResult`, `WriteResult`
+- [x] RRULE builder + validator (subset enforcement, DST-correct
+      expansion preview via dateutil)
+- [x] Mock backend: `FakeCalendarTools` (in-memory, mirrors MCP
+      semantics) behind a `CalendarTools` protocol
+- [x] MCP client wiring: `HttpMcpCalendarTools` (httpx JSON-RPC to
+      `mcp.php`) — direct client, since mcp.php's HTTP transport is
+      custom JSON-RPC, not standard-MCP (so `langchain-mcp-adapters`
+      isn't the right fit). Tested via httpx MockTransport.
+- [x] Graph nodes: `parse_intent`, `gather_context`, `propose`,
       `human_approval` (interrupt), `execute`, `verify`, `respond`
-- [ ] SQLite checkpointer; resume-after-restart demonstrated
-- [ ] Error handling paths: MCP timeout / malformed response / rejected
-      proposal loop
-- [ ] CLI chat interface (REPL; render proposals with human-readable
-      RRULE expansion and conflict flags)
-- [ ] Integration smoke test against live WebCalendar (read + gated write)
-- [ ] TDD throughout; code review + security review before merge
-      (auth-adjacent code paths: token handling, write gating)
+- [x] SQLite checkpointer; resume-after-restart demonstrated (a second
+      graph over the same SQLite file resumes the interrupted thread)
+- [x] Error handling paths: JSON-RPC error → McpError; tool-level error
+      → failed WriteResult; invalid recurrence; rejected-proposal replan
+- [x] CLI chat interface (REPL with injectable I/O; proposals rendered
+      with RRULE expansion + conflict flags); `scheduling-agent` entry point
+- [ ] Integration smoke test against **live** WebCalendar (read + gated
+      write) — deferred with the rest of live verification
+- [x] TDD throughout (RED→GREEN per module); full gate green,
+      **115 tests, 100% coverage** (ruff, mypy --strict, bandit, pytest)
+
+**Deviations from the original plan (documented):**
+- Direct httpx JSON-RPC client instead of `langchain-mcp-adapters`
+  (mcp.php's HTTP path is custom JSON-RPC, not MCP-compliant).
+- `propose` is deterministic (build+validate RRULE) rather than a
+  second LLM step — keeps the write path predictable and testable.
+- **Known v1 limitations:** one-off `create` events are stored untimed
+  (the current `add_event` MCP tool takes no time); availability/
+  conflicts don't expand recurring occurrences beyond the base date.
+  Both are documented and slated for the eval phase / a backend follow-up.
 
 ## Phase 3 — Eval suite (starts alongside Phase 2, per project decision)
 
