@@ -140,6 +140,7 @@ def _execute(state: AgentState, tools: CalendarTools) -> dict[str, Any]:
         result = tools.add_event(
             proposal.title,
             date,
+            time,
             proposal.description,
             proposal.location,
             proposal.duration_minutes,

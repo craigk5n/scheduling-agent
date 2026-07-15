@@ -113,9 +113,11 @@ def test_create_oneoff_flow() -> None:
     app.invoke({"request": "lunch tuesday"}, _cfg())
     done = app.invoke(Command(resume={"decision": "approve"}), _cfg())
     assert "Done" in done["response"]
-    # add_event is untimed, so the created event lands in all_day (documented).
+    # The one-off now keeps its time: 12:00-04:00 -> 16:00 GMT, a busy block.
     avail = tools.get_availability("20260804", "20260804")
-    assert len(avail.all_day) == 1
+    assert len(avail.busy) == 1
+    assert avail.busy[0].time == "160000"
+    assert avail.all_day == []
 
 
 def test_update_event_flow_with_string_decision() -> None:

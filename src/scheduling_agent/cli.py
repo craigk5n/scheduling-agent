@@ -16,6 +16,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from scheduling_agent.calendar import HttpMcpCalendarTools
+from scheduling_agent.checkpoint import default_serde
 from scheduling_agent.graph import build_agent
 from scheduling_agent.observability import (
     configure_logging,
@@ -99,7 +100,8 @@ def run_repl(
 def main() -> None:  # pragma: no cover - reads env, opens sqlite, network I/O
     from dotenv import load_dotenv
 
-    load_dotenv()  # load .env into the environment before reading settings
+    # .env is the source of truth for this CLI; override any stale shell exports.
+    load_dotenv(override=True)
     configure_logging()
     settings = Settings.from_env()
     mcp_url = os.environ.get("MCP_URL", "").strip()
@@ -108,7 +110,10 @@ def main() -> None:  # pragma: no cover - reads env, opens sqlite, network I/O
         raise SystemExit("MCP_URL and MCP_TOKEN must be set (see .env.example)")
     conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
     agent = build_cli_agent(
-        settings, mcp_url=mcp_url, mcp_token=mcp_token, checkpointer=SqliteSaver(conn)
+        settings,
+        mcp_url=mcp_url,
+        mcp_token=mcp_token,
+        checkpointer=SqliteSaver(conn, serde=default_serde()),
     )
     trace = "on" if tracing_enabled() else "off"
     print(

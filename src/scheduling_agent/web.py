@@ -82,11 +82,12 @@ def main() -> None:  # pragma: no cover - reads env, opens sqlite, serves HTTP
     from dotenv import load_dotenv
     from langgraph.checkpoint.sqlite import SqliteSaver
 
+    from scheduling_agent.checkpoint import default_serde
     from scheduling_agent.cli import build_cli_agent
     from scheduling_agent.observability import configure_logging
     from scheduling_agent.settings import Settings
 
-    load_dotenv()
+    load_dotenv(override=True)
     configure_logging()
     settings = Settings.from_env()
     mcp_url = os.environ.get("MCP_URL", "").strip()
@@ -95,7 +96,10 @@ def main() -> None:  # pragma: no cover - reads env, opens sqlite, serves HTTP
         raise SystemExit("MCP_URL and MCP_TOKEN must be set (see .env.example)")
     conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
     agent = build_cli_agent(
-        settings, mcp_url=mcp_url, mcp_token=mcp_token, checkpointer=SqliteSaver(conn)
+        settings,
+        mcp_url=mcp_url,
+        mcp_token=mcp_token,
+        checkpointer=SqliteSaver(conn, serde=default_serde()),
     )
     host = os.environ.get("HOST", "0.0.0.0")  # nosec B104 - container binding
     port = int(os.environ.get("PORT", "8000"))
