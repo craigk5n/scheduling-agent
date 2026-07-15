@@ -275,8 +275,10 @@ class HttpMcpCalendarTools:
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
+            snippet = " ".join(exc.response.text.split())[:200]
             raise McpError(
-                f"MCP HTTP {exc.response.status_code} calling {name}"
+                f"MCP HTTP {exc.response.status_code} calling {name} "
+                f"at {self._url} — check MCP_URL. Response: {snippet}"
             ) from exc
         except httpx.HTTPError as exc:
             raise McpError(f"MCP request failed calling {name}: {exc}") from exc
