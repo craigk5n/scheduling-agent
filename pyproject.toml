@@ -17,6 +17,9 @@ dependencies = [
     "httpx>=0.27",
 ]
 
+[project.scripts]
+scheduling-agent = "scheduling_agent.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/craigk5n/scheduling-agent"
 Repository = "https://github.com/craigk5n/scheduling-agent"
@@ -58,3 +61,4 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["scheduling_agent"]
 branch = true
+omit = ["*/__main__.py"]
