@@ -256,22 +256,47 @@ class HttpMcpCalendarTools:
         self._client = client or httpx.Client(timeout=30.0)
 
     def _call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        response = self._client.post(
-            self._url,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": name, "arguments": arguments},
-            },
-            headers={"X-MCP-Token": self._token, "Content-Type": "application/json"},
-        )
-        response.raise_for_status()
-        data = response.json()
-        if isinstance(data, dict) and data.get("error"):
-            message = data["error"].get("message", str(data["error"]))
+        # Transport faults (timeouts, dropped connections, HTTP errors — e.g.
+        # k5n-mcp-hub's injected 504) are wrapped into McpError so callers see
+        # one clean failure type instead of assorted httpx exceptions.
+        try:
+            response = self._client.post(
+                self._url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": name, "arguments": arguments},
+                },
+                headers={
+                    "X-MCP-Token": self._token,
+                    "Content-Type": "application/json",
+                },
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise McpError(
+                f"MCP HTTP {exc.response.status_code} calling {name}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise McpError(f"MCP request failed calling {name}: {exc}") from exc
+
+        # A malformed or non-JSON body (corrupt response, dropped SSE stream)
+        # must not crash the caller.
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise McpError(f"MCP returned malformed JSON calling {name}") from exc
+
+        if not isinstance(data, dict):
+            raise McpError(f"MCP returned a non-object response calling {name}")
+        if data.get("error"):
+            error = data["error"]
+            message = error.get("message", error) if isinstance(error, dict) else error
             raise McpError(str(message))
-        result: dict[str, Any] = data.get("result", {})
+        result = data.get("result")
+        if not isinstance(result, dict):
+            raise McpError(f"MCP response missing a result object calling {name}")
         return result
 
     @staticmethod

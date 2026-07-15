@@ -81,12 +81,17 @@ def run_repl(
         set_correlation_id(thread_id)
         log_event("request", request=request)
         config = {"configurable": {"thread_id": thread_id}}
-        state = agent.invoke({"request": request}, config)
-        while "__interrupt__" in state:
-            write(state["__interrupt__"][0].value["summary"])
-            decision = _prompt_decision(read, write)
-            log_event("decision", decision=decision.get("decision"))
-            state = agent.invoke(Command(resume=decision), config)
+        try:
+            state = agent.invoke({"request": request}, config)
+            while "__interrupt__" in state:
+                write(state["__interrupt__"][0].value["summary"])
+                decision = _prompt_decision(read, write)
+                log_event("decision", decision=decision.get("decision"))
+                state = agent.invoke(Command(resume=decision), config)
+        except Exception as exc:  # noqa: BLE001 - never crash the REPL on a turn
+            log_event("error", error=str(exc))
+            write(f"Sorry, that request hit an error: {exc}")
+            continue
         log_event("responded")
         write(state.get("response", ""))
 
