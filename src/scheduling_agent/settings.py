@@ -62,6 +62,8 @@ class Settings(BaseModel):
 
     model_provider: ModelProvider
     credential: SecretStr
+    #: Optional model override (from MODEL_NAME); falls back to a provider default.
+    model: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -80,4 +82,9 @@ class Settings(BaseModel):
                 f"Model provider {provider.value!r} requires the "
                 f"{credential_var} environment variable to be set."
             )
-        return cls(model_provider=provider, credential=SecretStr(credential))
+        model = (source.get("MODEL_NAME") or "").strip() or None
+        return cls(
+            model_provider=provider,
+            credential=SecretStr(credential),
+            model=model,
+        )
