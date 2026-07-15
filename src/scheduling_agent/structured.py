@@ -10,11 +10,14 @@ differences a measured quantity, not a bug class.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Sequence
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, ValidationError
+
+from scheduling_agent.observability import log_event
 
 
 class StructuredOutputError(RuntimeError):
@@ -40,8 +43,19 @@ def structured_call[T: BaseModel](
     ]
     last_error: Exception | None = None
 
-    for _ in range(max_retries + 1):
+    provider = type(model).__name__
+    for attempt in range(max_retries + 1):
+        log_event(
+            "llm_invoke", provider=provider, schema=schema.__name__, attempt=attempt + 1
+        )
+        start = time.monotonic()
         response = model.invoke(conversation)
+        log_event(
+            "llm_response",
+            provider=provider,
+            attempt=attempt + 1,
+            elapsed_ms=round((time.monotonic() - start) * 1000),
+        )
         text = (
             response.content
             if isinstance(response.content, str)

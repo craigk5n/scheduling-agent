@@ -12,6 +12,7 @@ All dates/times are the GMT storage frame, matching the MCP tool contract.
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -24,6 +25,7 @@ from scheduling_agent.models import (
     ConflictResult,
     WriteResult,
 )
+from scheduling_agent.observability import log_event
 from scheduling_agent.rrule import RruleError, validate_rrule
 
 
@@ -258,6 +260,22 @@ class HttpMcpCalendarTools:
         self._client = client or httpx.Client(timeout=30.0)
 
     def _call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        log_event("mcp_request", tool=name)
+        start = time.monotonic()
+        ok = False
+        try:
+            result = self._do_call(name, arguments)
+            ok = True
+            return result
+        finally:
+            log_event(
+                "mcp_result",
+                tool=name,
+                ok=ok,
+                elapsed_ms=round((time.monotonic() - start) * 1000),
+            )
+
+    def _do_call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         # Transport faults (timeouts, dropped connections, HTTP errors — e.g.
         # k5n-mcp-hub's injected 504) are wrapped into McpError so callers see
         # one clean failure type instead of assorted httpx exceptions.
