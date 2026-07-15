@@ -43,6 +43,7 @@ def build_cli_agent(
         tools,
         checkpointer,
         structured_method=structured_output_method(settings),
+        provider=settings.model_provider.value,
     )
 
 

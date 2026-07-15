@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import json
 from typing import Any
 
 import pytest
@@ -10,6 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 
+from scheduling_agent.observability import configure_logging
 from scheduling_agent.structured import StructuredOutputError, structured_call
 
 
@@ -115,3 +118,19 @@ def test_no_method_skips_native_path() -> None:
     # A model whose native path would return x=7 is NOT used when method is None.
     out = structured_call(_native(), [HumanMessage(content="x")], Foo)
     assert out.x == 5  # repair loop over the canned text
+
+
+def test_provider_label_appears_in_logs() -> None:
+    # The configured provider name (not the ChatOpenAI class name) is logged.
+    buf = io.StringIO()
+    configure_logging(level="INFO", stream=buf)
+    structured_call(
+        _native(),
+        [HumanMessage(content="x")],
+        Foo,
+        method="json_schema",
+        provider="lmstudio",
+    )
+    records = [json.loads(line) for line in buf.getvalue().splitlines() if line]
+    invoke = next(r for r in records if r["message"] == "llm_invoke")
+    assert invoke["provider"] == "lmstudio"

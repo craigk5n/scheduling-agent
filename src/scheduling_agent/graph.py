@@ -68,7 +68,10 @@ def _is_time_unspecified(dt: datetime) -> bool:
 
 
 def _parse_intent(
-    state: AgentState, model: BaseChatModel, method: str | None
+    state: AgentState,
+    model: BaseChatModel,
+    method: str | None,
+    provider: str | None,
 ) -> dict[str, Any]:
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     messages = [
@@ -80,7 +83,9 @@ def _parse_intent(
         messages.append(
             HumanMessage(content=f"Revise the previous plan given: {feedback}")
         )
-    proposal = structured_call(model, messages, ScheduleProposal, method=method)
+    proposal = structured_call(
+        model, messages, ScheduleProposal, method=method, provider=provider
+    )
     return {"proposal": proposal, "feedback": None, "error": None}
 
 
@@ -255,15 +260,18 @@ def build_agent(
     checkpointer: Any,
     *,
     structured_method: str | None = None,
+    provider: str | None = None,
 ) -> Any:
     """Compile the scheduling agent graph with an interrupt-capable checkpointer.
 
     ``structured_method`` (e.g. "json_schema") enables provider-native
-    structured output for parsing, with a repair-loop fallback.
+    structured output for parsing, with a repair-loop fallback. ``provider`` is
+    a human-readable label (e.g. "lmstudio") used in logs.
     """
     builder = StateGraph(AgentState)
     builder.add_node(
-        "parse_intent", lambda s: _parse_intent(s, model, structured_method)
+        "parse_intent",
+        lambda s: _parse_intent(s, model, structured_method, provider),
     )
     builder.add_node("gather_context", lambda s: _gather_context(s, tools))
     builder.add_node("propose", _propose)
