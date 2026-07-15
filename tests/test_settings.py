@@ -105,6 +105,27 @@ def test_settings_is_immutable() -> None:
         settings.model_provider = ModelProvider.OPENROUTER
 
 
+def test_local_providers_need_no_credential_and_default_base_url() -> None:
+    ollama = Settings.from_env({"MODEL_PROVIDER": "ollama"})
+    assert ollama.model_provider is ModelProvider.OLLAMA
+    assert ollama.base_url == "http://localhost:11434/v1"
+
+    lmstudio = Settings.from_env({"MODEL_PROVIDER": "lmstudio"})
+    assert lmstudio.base_url == "http://localhost:1234/v1"
+
+
+def test_local_provider_base_url_override() -> None:
+    s = Settings.from_env(
+        {"MODEL_PROVIDER": "ollama", "OLLAMA_BASE_URL": "http://gpu:11434/v1"}
+    )
+    assert s.base_url == "http://gpu:11434/v1"
+
+
+def test_non_local_provider_has_no_base_url() -> None:
+    s = Settings.from_env({"MODEL_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "k"})
+    assert s.base_url is None
+
+
 def test_credential_is_not_exposed_in_repr() -> None:
     settings = Settings.from_env(
         {"MODEL_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "super-secret-value"}

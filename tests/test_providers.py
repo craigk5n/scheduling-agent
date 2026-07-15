@@ -14,7 +14,7 @@ from scheduling_agent.providers import (
     ClaudeSubscriptionChatModel,
     get_chat_model,
 )
-from scheduling_agent.settings import Settings
+from scheduling_agent.settings import ModelProvider, Settings
 
 _CRED = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -59,6 +59,39 @@ def test_explicit_model_argument_wins() -> None:
     model = get_chat_model(_settings("anthropic", model="from-env"), model="explicit")
     assert isinstance(model, ChatAnthropic)
     assert model.model == "explicit"
+
+
+def test_ollama_provider_builds_local_chatopenai() -> None:
+    model = get_chat_model(Settings.from_env({"MODEL_PROVIDER": "ollama"}))
+    assert isinstance(model, ChatOpenAI)
+    assert "11434" in str(model.openai_api_base)
+    assert model.model_name == "llama3.1"  # default local model tag
+
+
+def test_lmstudio_provider_builds_local_chatopenai() -> None:
+    settings = Settings.from_env(
+        {"MODEL_PROVIDER": "lmstudio", "MODEL_NAME": "qwen2.5-7b"}
+    )
+    model = get_chat_model(settings)
+    assert isinstance(model, ChatOpenAI)
+    assert "1234" in str(model.openai_api_base)
+    assert model.model_name == "qwen2.5-7b"
+
+
+def test_ollama_base_url_override() -> None:
+    settings = Settings.from_env(
+        {"MODEL_PROVIDER": "ollama", "OLLAMA_BASE_URL": "http://gpu-box:11434/v1"}
+    )
+    model = get_chat_model(settings)
+    assert isinstance(model, ChatOpenAI)
+    assert "gpu-box:11434" in str(model.openai_api_base)
+
+
+def test_local_provider_needs_no_credential() -> None:
+    # No API key set, yet it builds fine.
+    settings = Settings.from_env({"MODEL_PROVIDER": "ollama"})
+    assert settings.model_provider is ModelProvider.OLLAMA
+    assert get_chat_model(settings) is not None
 
 
 def test_subscription_generate_uses_cli_output(

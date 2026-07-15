@@ -21,11 +21,17 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import SecretStr
 
-from scheduling_agent.settings import ModelProvider, Settings
+from scheduling_agent.settings import DEFAULT_BASE_URL, ModelProvider, Settings
 
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
 DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-5"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+#: Fallback model tag per local provider (override with MODEL_NAME).
+DEFAULT_LOCAL_MODEL: dict[ModelProvider, str] = {
+    ModelProvider.OLLAMA: "llama3.1",
+    ModelProvider.LMSTUDIO: "local-model",
+}
 
 # System prompt for the subscription (claude CLI) path: strip the coding-agent
 # persona so it behaves as a plain structured-output completion.
@@ -70,7 +76,21 @@ def get_chat_model(
         }
         return ChatOpenAI(**params)
 
-    # ModelProvider is a closed enum; subscription is the only remaining case.
+    if provider in (ModelProvider.OLLAMA, ModelProvider.LMSTUDIO):
+        from langchain_openai import ChatOpenAI
+
+        # Local models via their OpenAI-compatible endpoint. Constrain output to
+        # a JSON object so weaker local models reliably satisfy the schema.
+        params = {
+            "model": model or settings.model or DEFAULT_LOCAL_MODEL[provider],
+            "api_key": SecretStr(key),
+            "base_url": settings.base_url or DEFAULT_BASE_URL[provider],
+            "temperature": temperature,
+            "model_kwargs": {"response_format": {"type": "json_object"}},
+        }
+        return ChatOpenAI(**params)
+
+    # Only claude-subscription remains.
     return ClaudeSubscriptionChatModel(
         model=model or settings.model or DEFAULT_ANTHROPIC_MODEL,
         oauth_token=settings.credential,
