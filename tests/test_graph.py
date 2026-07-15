@@ -72,9 +72,9 @@ def test_reject_then_replan_then_approve() -> None:
     assert tools.get_availability("20260803", "20260803").busy[0].name == "Right Name"
 
 
-def test_query_skips_approval_and_lists_busy() -> None:
+def test_query_skips_approval_and_lists_events() -> None:
     tools = FakeCalendarTools()
-    tools.add_recurring_event("Existing", "20260803", "FREQ=DAILY", time="100000")
+    tools.add_event("Existing", "20260803", time="100000")
     query = {
         "action": "query",
         "title": "",
@@ -86,6 +86,39 @@ def test_query_skips_approval_and_lists_busy() -> None:
     result = app.invoke({"request": "what does my week look like"}, _cfg())
     assert "__interrupt__" not in result
     assert "Existing" in result["response"]
+    # Times come from list_events (local frame), rendered as HH:MM.
+    assert "10:00" in result["response"]
+
+
+def test_query_honors_range_end_window() -> None:
+    # An event inside the requested window shows; one past it does not.
+    tools = FakeCalendarTools()
+    tools.add_event("In Window", "20260720", time="120000")
+    tools.add_event("Too Far", "20260901", time="120000")
+    query = {
+        "action": "query",
+        "title": "",
+        "timezone": "America/New_York",
+        "start": "2026-07-15T00:00:00-04:00",
+        "range_end": "2026-08-14",
+    }
+    app = build_agent(_model(query), tools, MemorySaver())
+
+    result = app.invoke({"request": "events for the next 30 days"}, _cfg())
+    assert "In Window" in result["response"]
+    assert "Too Far" not in result["response"]
+
+
+def test_query_with_no_events_reports_empty() -> None:
+    query = {
+        "action": "query",
+        "title": "",
+        "timezone": "America/New_York",
+        "start": "2026-07-15T00:00:00-04:00",
+    }
+    app = build_agent(_model(query), FakeCalendarTools(), MemorySaver())
+    result = app.invoke({"request": "anything coming up?"}, _cfg())
+    assert "No events" in result["response"]
 
 
 def test_invalid_recurrence_errors_without_write() -> None:

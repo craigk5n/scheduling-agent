@@ -1,9 +1,9 @@
-"""Human-readable rendering of proposals and availability for the CLI/HITL."""
+"""Human-readable rendering of proposals and events for the CLI/HITL."""
 
 from __future__ import annotations
 
 from scheduling_agent.models import (
-    AvailabilityResult,
+    BusyBlock,
     ConflictResult,
     ScheduleAction,
     ScheduleProposal,
@@ -58,11 +58,22 @@ def render_proposal(
     return "\n".join(lines)
 
 
-def render_availability(availability: AvailabilityResult | None) -> str:
-    """Render busy blocks (GMT frame) for a query response."""
-    if availability is None or not availability.busy:
-        return "No busy time blocks found in that range."
-    rows = [
-        f"  - {b.date} {b.time} {b.name} ({b.duration} min)" for b in availability.busy
-    ]
-    return "Busy (GMT):\n" + "\n".join(rows)
+def render_events(events: list[BusyBlock] | None) -> str:
+    """Render a listing query's events. ``list_events`` returns local dates
+    (YYYYMMDD) and times (HHMMSS, or "-1" for all-day), so the clock times shown
+    here match the user's calendar."""
+    if not events:
+        return "No events found in that range."
+    rows = [f"  - {_format_when(e.date, e.time)}  {e.name}" for e in events]
+    return "Upcoming events:\n" + "\n".join(rows)
+
+
+def _format_when(date: str, time: str) -> str:
+    """Format a local YYYYMMDD date and HHMMSS time (or "-1") for display."""
+    day = f"{date[0:4]}-{date[4:6]}-{date[6:8]}" if len(date) == 8 else date
+    if time == "-1":
+        return f"{day} (all day)"
+    if len(time) >= 4 and time.isdigit():
+        padded = time.zfill(6)
+        return f"{day} {padded[0:2]}:{padded[2:4]}"
+    return f"{day} {time}"

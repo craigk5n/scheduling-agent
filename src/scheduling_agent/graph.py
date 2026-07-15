@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import Any, TypedDict
+from zoneinfo import ZoneInfo
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -18,15 +19,18 @@ from langgraph.types import interrupt
 
 from scheduling_agent.calendar import CalendarTools
 from scheduling_agent.models import (
-    AvailabilityResult,
+    BusyBlock,
     ConflictResult,
     ScheduleAction,
     ScheduleProposal,
     WriteResult,
 )
-from scheduling_agent.render import render_availability, render_proposal
+from scheduling_agent.render import render_events, render_proposal
 from scheduling_agent.rrule import RruleError, build_rrule, validate_rrule
 from scheduling_agent.structured import structured_call
+
+#: Window used for a listing query when the model gives no explicit end date.
+_DEFAULT_QUERY_DAYS = 30
 
 _PARSE_SYSTEM = (
     "You are a scheduling assistant. Turn the user's request into a single "
@@ -35,6 +39,9 @@ _PARSE_SYSTEM = (
     "For update/delete, set 'title' to the target event's name; 'start' is the "
     "NEW date/time; and if the user says which date the event is currently on "
     "(e.g. 'the one on July 18'), set 'target_date' to that current date. "
+    "For a listing query (action=query, e.g. 'events for the next 30 days'), "
+    "set 'start' to the first day of the window and 'range_end' to the last "
+    "day, both in the user's timezone. "
     "Today's date is {today}."
 )
 
@@ -46,7 +53,7 @@ class AgentState(TypedDict, total=False):
     feedback: str | None
     proposal: ScheduleProposal
     rrule: str | None
-    availability: AvailabilityResult | None
+    events: list[BusyBlock]
     conflicts: ConflictResult | None
     approved: bool
     resolved_by_search: bool
@@ -92,9 +99,7 @@ def _parse_intent(
 def _gather_context(state: AgentState, tools: CalendarTools) -> dict[str, Any]:
     proposal = state["proposal"]
     if proposal.action is ScheduleAction.QUERY:
-        start, _ = _gmt(proposal)
-        end = (proposal.start.astimezone(UTC) + timedelta(days=7)).strftime("%Y%m%d")
-        return {"availability": tools.get_availability(start, end)}
+        return {"events": _list_query_events(proposal, tools)}
     if proposal.action in (ScheduleAction.CREATE, ScheduleAction.CREATE_RECURRING):
         date, time = _gmt(proposal)
         return {
@@ -103,6 +108,19 @@ def _gather_context(state: AgentState, tools: CalendarTools) -> dict[str, Any]:
     if proposal.action in (ScheduleAction.UPDATE, ScheduleAction.DELETE):
         return _resolve_target(proposal, tools)
     return {}  # pragma: no cover - all ScheduleAction values are handled above
+
+
+def _list_query_events(
+    proposal: ScheduleProposal, tools: CalendarTools
+) -> list[BusyBlock]:
+    """List events over the requested window using ``list_events`` (which
+    returns local dates/times and filters by local date), so a query answer
+    shows the same events, at the same clock times, that the user sees in the
+    calendar — unlike the GMT-framed availability tool."""
+    tz = ZoneInfo(proposal.timezone)
+    start_date = proposal.start.astimezone(tz).date()
+    end_date = proposal.range_end or (start_date + timedelta(days=_DEFAULT_QUERY_DAYS))
+    return tools.list_events(start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d"))
 
 
 def _resolve_target(proposal: ScheduleProposal, tools: CalendarTools) -> dict[str, Any]:
@@ -241,7 +259,7 @@ def _respond(state: AgentState) -> dict[str, Any]:
         return {"response": f"I couldn't do that: {state['error']}"}
     proposal = state["proposal"]
     if proposal.action is ScheduleAction.QUERY:
-        return {"response": render_availability(state.get("availability"))}
+        return {"response": render_events(state.get("events"))}
     result = state.get("result")
     if result is not None and result.success:
         verified = " (verified)" if state.get("verified") else ""

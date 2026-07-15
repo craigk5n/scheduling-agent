@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from scheduling_agent.models import (
-    AvailabilityResult,
     BusyBlock,
     Conflict,
     ConflictResult,
@@ -15,7 +14,7 @@ from scheduling_agent.models import (
     ScheduleAction,
     ScheduleProposal,
 )
-from scheduling_agent.render import render_availability, render_proposal
+from scheduling_agent.render import render_events, render_proposal
 
 NY = ZoneInfo("America/New_York")
 
@@ -56,19 +55,34 @@ def test_render_full_proposal_with_rrule_and_conflicts() -> None:
     assert "Conflicts with: Busy" in text
 
 
-def test_render_availability_empty() -> None:
-    assert "No busy" in render_availability(None)
-    assert "No busy" in render_availability(AvailabilityResult())
+def test_render_events_empty() -> None:
+    assert "No events" in render_events(None)
+    assert "No events" in render_events([])
 
 
-def test_render_availability_with_busy() -> None:
-    avail = AvailabilityResult(
-        busy=[
-            BusyBlock(id=1, name="Meeting", date="20260803", time="090000", duration=30)
-        ]
-    )
-    text = render_availability(avail)
-    assert "Meeting" in text and "20260803" in text
+def test_render_events_shows_local_date_and_time() -> None:
+    # list_events returns local YYYYMMDD / HHMMSS, so the rendered clock time is
+    # the user's local time (here 07:30), not GMT.
+    events = [
+        BusyBlock(id=1, name="Haircut", date="20260716", time="073000", duration=60)
+    ]
+    text = render_events(events)
+    assert "Haircut" in text
+    assert "2026-07-16 07:30" in text
+
+
+def test_render_events_marks_all_day() -> None:
+    events = [BusyBlock(id=2, name="Holiday", date="20260704", time="-1")]
+    text = render_events(events)
+    assert "2026-07-04 (all day)" in text
+    assert "Holiday" in text
+
+
+def test_render_events_tolerates_malformed_time() -> None:
+    # Defensive: MCP data is external; an unexpected time string is shown as-is.
+    events = [BusyBlock(id=3, name="Odd", date="20260704", time="nope")]
+    text = render_events(events)
+    assert "2026-07-04 nope" in text
 
 
 def test_render_date_only_move_keeps_time() -> None:

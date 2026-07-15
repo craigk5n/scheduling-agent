@@ -92,6 +92,10 @@ class ScheduleProposal(BaseModel):
     #: title that matches several events. Set from phrasing like "the one on
     #: July 18". The ``start`` field is the NEW date/time.
     target_date: date | None = None
+    #: For a listing query ("events for the next 30 days"): the last day of the
+    #: window (in the user's timezone). ``start`` is the first day; if omitted,
+    #: a default window is used.
+    range_end: date | None = None
 
     @field_validator("timezone")
     @classmethod
