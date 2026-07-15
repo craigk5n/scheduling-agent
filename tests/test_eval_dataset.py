@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from scheduling_agent.evals.dataset import load_cases
 from scheduling_agent.evals.scorers import score_case
 from scheduling_agent.models import ScheduleAction
@@ -25,6 +29,13 @@ def test_reference_proposals_all_satisfy_expected() -> None:
             failing = [f"{c.name}({c.detail})" for c in result.checks if not c.passed]
             failures.append(f"{case.id}: {', '.join(failing)}")
     assert not failures, "reference cases failed:\n" + "\n".join(failures)
+
+
+def test_load_cases_rejects_non_list(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("id: not-a-list\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="list of cases"):
+        load_cases(bad)
 
 
 def test_dataset_covers_all_actions() -> None:

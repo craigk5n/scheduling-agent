@@ -17,6 +17,12 @@ from langgraph.types import Command
 
 from scheduling_agent.calendar import HttpMcpCalendarTools
 from scheduling_agent.graph import build_agent
+from scheduling_agent.observability import (
+    configure_logging,
+    log_event,
+    set_correlation_id,
+    tracing_enabled,
+)
 from scheduling_agent.providers import get_chat_model
 from scheduling_agent.settings import Settings
 
@@ -71,16 +77,22 @@ def run_repl(
         if not request:
             continue
         turn += 1
-        config = {"configurable": {"thread_id": f"{thread_prefix}-{turn}"}}
+        thread_id = f"{thread_prefix}-{turn}"
+        set_correlation_id(thread_id)
+        log_event("request", request=request)
+        config = {"configurable": {"thread_id": thread_id}}
         state = agent.invoke({"request": request}, config)
         while "__interrupt__" in state:
             write(state["__interrupt__"][0].value["summary"])
             decision = _prompt_decision(read, write)
+            log_event("decision", decision=decision.get("decision"))
             state = agent.invoke(Command(resume=decision), config)
+        log_event("responded")
         write(state.get("response", ""))
 
 
 def main() -> None:  # pragma: no cover - reads env, opens sqlite, network I/O
+    configure_logging()
     settings = Settings.from_env()
     mcp_url = os.environ.get("MCP_URL", "").strip()
     mcp_token = os.environ.get("MCP_TOKEN", "").strip()
@@ -90,5 +102,9 @@ def main() -> None:  # pragma: no cover - reads env, opens sqlite, network I/O
     agent = build_cli_agent(
         settings, mcp_url=mcp_url, mcp_token=mcp_token, checkpointer=SqliteSaver(conn)
     )
-    print("Scheduling agent ready. Describe what to schedule, or type 'quit'.")
+    trace = "on" if tracing_enabled() else "off"
+    print(
+        f"Scheduling agent ready (provider={settings.model_provider.value}, "
+        f"tracing={trace}). Describe what to schedule, or type 'quit'."
+    )
     run_repl(agent)
