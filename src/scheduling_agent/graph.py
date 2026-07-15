@@ -32,6 +32,9 @@ _PARSE_SYSTEM = (
     "You are a scheduling assistant. Turn the user's request into a single "
     "ScheduleProposal. Use timezone-aware start times in the user's timezone. "
     "For recurring events set action=create_recurring and fill the recurrence. "
+    "For update/delete, set 'title' to the target event's name; 'start' is the "
+    "NEW date/time; and if the user says which date the event is currently on "
+    "(e.g. 'the one on July 18'), set 'target_date' to that current date. "
     "Today's date is {today}."
 )
 
@@ -93,15 +96,21 @@ def _resolve_target(proposal: ScheduleProposal, tools: CalendarTools) -> dict[st
     title when the model didn't provide an id."""
     if proposal.target_event_id is not None:
         return {}
-    matches = tools.search_events(proposal.title, limit=10)
+    matches = tools.search_events(proposal.title, limit=25)
+    # Narrow by the target's current date when the user gave one.
+    if proposal.target_date is not None:
+        wanted = proposal.target_date.strftime("%Y%m%d")
+        matches = [m for m in matches if m.date == wanted]
+
     if not matches:
-        return {"error": f"I couldn't find an event matching '{proposal.title}'."}
+        on = f" on {proposal.target_date.isoformat()}" if proposal.target_date else ""
+        return {"error": f"I couldn't find an event matching '{proposal.title}'{on}."}
     if len(matches) > 1:
         listing = ", ".join(f"{m.name} on {m.date}" for m in matches[:5])
         return {
             "error": (
                 f"Multiple events match '{proposal.title}': {listing}. "
-                "Please be more specific."
+                "Please say which date the event is currently on."
             )
         }
     resolved = proposal.model_copy(update={"target_event_id": matches[0].id})

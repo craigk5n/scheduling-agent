@@ -88,6 +88,10 @@ class ScheduleProposal(BaseModel):
     description: str = ""
     participants: list[str] = Field(default_factory=list)
     target_event_id: int | None = None
+    #: For update/delete: the target event's CURRENT date, to disambiguate a
+    #: title that matches several events. Set from phrasing like "the one on
+    #: July 18". The ``start`` field is the NEW date/time.
+    target_date: date | None = None
 
     @field_validator("timezone")
     @classmethod
