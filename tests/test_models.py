@@ -58,14 +58,26 @@ def test_naive_start_rejected() -> None:
         )
 
 
-def test_update_requires_target_event_id() -> None:
+def test_update_requires_id_or_title() -> None:
+    # Neither id nor title -> can't identify the event.
     with pytest.raises(ValidationError):
         ScheduleProposal(
             action=ScheduleAction.UPDATE,
-            title="X",
+            title="",
             timezone="UTC",
             start=datetime(2026, 8, 3, 9, 0, tzinfo=UTC),
         )
+
+
+def test_update_by_title_only_is_valid() -> None:
+    # A title (no id) is allowed: the agent resolves the id via search.
+    p = ScheduleProposal(
+        action=ScheduleAction.UPDATE,
+        title="Dog Grooming",
+        timezone="UTC",
+        start=datetime(2026, 8, 3, 9, 0, tzinfo=UTC),
+    )
+    assert p.target_event_id is None and p.title == "Dog Grooming"
 
 
 def test_delete_with_target_is_valid() -> None:

@@ -83,7 +83,29 @@ def _gather_context(state: AgentState, tools: CalendarTools) -> dict[str, Any]:
         return {
             "conflicts": tools.check_conflicts(date, time, proposal.duration_minutes)
         }
-    return {}
+    if proposal.action in (ScheduleAction.UPDATE, ScheduleAction.DELETE):
+        return _resolve_target(proposal, tools)
+    return {}  # pragma: no cover - all ScheduleAction values are handled above
+
+
+def _resolve_target(proposal: ScheduleProposal, tools: CalendarTools) -> dict[str, Any]:
+    """Resolve an update/delete target to a concrete event id, searching by
+    title when the model didn't provide an id."""
+    if proposal.target_event_id is not None:
+        return {}
+    matches = tools.search_events(proposal.title, limit=10)
+    if not matches:
+        return {"error": f"I couldn't find an event matching '{proposal.title}'."}
+    if len(matches) > 1:
+        listing = ", ".join(f"{m.name} on {m.date}" for m in matches[:5])
+        return {
+            "error": (
+                f"Multiple events match '{proposal.title}': {listing}. "
+                "Please be more specific."
+            )
+        }
+    resolved = proposal.model_copy(update={"target_event_id": matches[0].id})
+    return {"proposal": resolved}
 
 
 def _propose(state: AgentState) -> dict[str, Any]:

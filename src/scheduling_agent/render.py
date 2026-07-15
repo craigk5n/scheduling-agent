@@ -5,6 +5,7 @@ from __future__ import annotations
 from scheduling_agent.models import (
     AvailabilityResult,
     ConflictResult,
+    ScheduleAction,
     ScheduleProposal,
 )
 from scheduling_agent.rrule import describe_rrule
@@ -23,6 +24,11 @@ def render_proposal(
         f"  When: {proposal.start.isoformat()} ({proposal.timezone})"
         + (f", {proposal.duration_minutes} min" if proposal.duration_minutes else "")
     )
+    if (
+        proposal.action in (ScheduleAction.UPDATE, ScheduleAction.DELETE)
+        and proposal.target_event_id is not None
+    ):
+        lines.append(f"  Target: event #{proposal.target_event_id}")
     if rrule:
         lines.append(f"  Repeats: {describe_rrule(rrule)}")
     if proposal.location:

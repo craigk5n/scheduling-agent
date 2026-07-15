@@ -103,8 +103,14 @@ class ScheduleProposal(BaseModel):
         if (
             self.action in (ScheduleAction.UPDATE, ScheduleAction.DELETE)
             and self.target_event_id is None
+            and not self.title.strip()
         ):
-            raise ValueError(f"{self.action.value} requires target_event_id")
+            # The agent can resolve the id from a title (search_events); require
+            # at least one way to identify the target event.
+            raise ValueError(
+                f"{self.action.value} requires target_event_id or a title "
+                "to find the event"
+            )
         if self.action is ScheduleAction.CREATE_RECURRING and self.recurrence is None:
             raise ValueError("create_recurring requires a recurrence spec")
         if (

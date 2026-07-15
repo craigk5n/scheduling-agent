@@ -197,6 +197,56 @@ def test_conflict_and_details_shown_in_summary() -> None:
     assert "Room B" in summary and "Bob" in summary
 
 
+def test_update_by_description_resolves_and_moves_event() -> None:
+    tools = FakeCalendarTools()
+    tools.add_recurring_event("Dog Grooming", "20260718", "FREQ=DAILY", time="140000")
+    move = {
+        "action": "update",
+        "title": "Dog Grooming",
+        "timezone": "America/New_York",
+        "start": "2026-07-19T10:00:00-04:00",  # -> 20260719 14:00 GMT
+    }
+    app = build_agent(_model(move), tools, MemorySaver())
+
+    paused = app.invoke({"request": "move dog grooming to sunday"}, _cfg())
+    # Resolved: the approval summary names the target event.
+    assert "Target: event #" in paused["__interrupt__"][0].value["summary"]
+
+    done = app.invoke(Command(resume={"decision": "approve"}), _cfg())
+    assert "Done" in done["response"]
+    assert tools.get_availability("20260718", "20260718").busy == []
+    assert tools.get_availability("20260719", "20260719").busy[0].name == "Dog Grooming"
+
+
+def test_update_by_description_not_found_errors() -> None:
+    ghost = {
+        "action": "update",
+        "title": "Nonexistent Event",
+        "timezone": "America/New_York",
+        "start": "2026-07-19T10:00:00-04:00",
+    }
+    app = build_agent(_model(ghost), FakeCalendarTools(), MemorySaver())
+    result = app.invoke({"request": "move nonexistent"}, _cfg())
+    assert "__interrupt__" not in result
+    assert "couldn't find" in result["response"].lower()
+
+
+def test_update_by_description_ambiguous_errors() -> None:
+    tools = FakeCalendarTools()
+    tools.add_recurring_event("Dog Grooming", "20260718", "FREQ=DAILY", time="140000")
+    tools.add_recurring_event("Dog Grooming", "20260725", "FREQ=DAILY", time="140000")
+    move = {
+        "action": "update",
+        "title": "Dog Grooming",
+        "timezone": "America/New_York",
+        "start": "2026-07-19T10:00:00-04:00",
+    }
+    app = build_agent(_model(move), tools, MemorySaver())
+    result = app.invoke({"request": "move dog grooming"}, _cfg())
+    assert "__interrupt__" not in result
+    assert "multiple events match" in result["response"].lower()
+
+
 def test_resume_after_restart_via_sqlite_checkpointer() -> None:
     tools = FakeCalendarTools()  # shared: the write is observable across "restart"
     tmp = tempfile.mkdtemp()
