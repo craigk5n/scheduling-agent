@@ -71,6 +71,15 @@ def test_fake_update_delete_missing_event_errors() -> None:
     assert not cal.delete_event(999).success
 
 
+def test_fake_search_events_by_name_substring() -> None:
+    cal = FakeCalendarTools()
+    cal.add_recurring_event("Dog Grooming", "20260718", "FREQ=DAILY", time="100000")
+    cal.add_recurring_event("Team Sync", "20260719", "FREQ=DAILY", time="090000")
+    hits = cal.search_events("grooming")
+    assert [e.name for e in hits] == ["Dog Grooming"]
+    assert cal.search_events("nothing") == []
+
+
 def test_fake_list_events_in_range() -> None:
     cal = FakeCalendarTools()
     cal.add_recurring_event("A", "20260803", "FREQ=DAILY", time="090000")
@@ -254,6 +263,32 @@ def test_http_list_events_parses_events_envelope() -> None:
 
     events = _client(handler).list_events("20260801", "20260805")
     assert len(events) == 1 and events[0].name == "M"
+
+
+def test_http_search_events_parses_events_envelope() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "events": [
+                        {
+                            "id": 42,
+                            "name": "Dog Grooming",
+                            "date": "20260718",
+                            "time": "100000",
+                            "description": "at the groomer",
+                        }
+                    ],
+                    "total": 1,
+                },
+            },
+        )
+
+    hits = _client(handler).search_events("grooming")
+    assert len(hits) == 1 and hits[0].id == 42 and hits[0].name == "Dog Grooming"
 
 
 def test_http_add_event_sends_arguments() -> None:

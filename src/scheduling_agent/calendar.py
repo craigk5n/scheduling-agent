@@ -38,6 +38,7 @@ class CalendarTools(Protocol):
     """The calendar operations the agent graph relies on (GMT frame)."""
 
     def list_events(self, start_date: str, end_date: str) -> list[BusyBlock]: ...
+    def search_events(self, keyword: str, limit: int = 50) -> list[BusyBlock]: ...
     def get_availability(
         self, start_date: str, end_date: str
     ) -> AvailabilityResult: ...
@@ -109,6 +110,23 @@ class FakeCalendarTools:
     def list_events(self, start_date: str, end_date: str) -> list[BusyBlock]:
         rows = [e for e in self._events.values() if start_date <= e["date"] <= end_date]
         rows.sort(key=lambda e: (e["date"], e["time"]))
+        return [
+            BusyBlock(
+                id=e["id"],
+                name=e["name"],
+                date=e["date"],
+                time=e["time"],
+                duration=e["duration"],
+            )
+            for e in rows
+        ]
+
+    def search_events(self, keyword: str, limit: int = 50) -> list[BusyBlock]:
+        needle = keyword.strip().lower()
+        rows = sorted(
+            (e for e in self._events.values() if needle in e["name"].lower()),
+            key=lambda e: (e["date"], e["time"]),
+        )[: max(0, limit)]
         return [
             BusyBlock(
                 id=e["id"],
@@ -335,6 +353,10 @@ class HttpMcpCalendarTools:
         result = self._call(
             "list_events", {"start_date": start_date, "end_date": end_date}
         )
+        return [BusyBlock(**e) for e in result.get("events", [])]
+
+    def search_events(self, keyword: str, limit: int = 50) -> list[BusyBlock]:
+        result = self._call("search_events", {"keyword": keyword, "limit": limit})
         return [BusyBlock(**e) for e in result.get("events", [])]
 
     def get_availability(self, start_date: str, end_date: str) -> AvailabilityResult:
