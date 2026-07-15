@@ -1,0 +1,324 @@
+# Golden evaluation dataset for the scheduling agent.
+# Each case: an NL request, timezone, a reference "today", optional fixture
+# events, the reference (ground-truth) ScheduleProposal, and the expected
+# outcome semantics the scorer checks. This is a diverse starter set; add
+# cases freely — the reference-consistency test keeps it honest.
+
+- id: lunch-oneoff
+  request: "Lunch with Dana next Tuesday at noon."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create
+    title: "Lunch with Dana"
+    timezone: America/New_York
+    start: "2026-07-21T12:00:00-04:00"
+    duration_minutes: 60
+  expected:
+    action: create
+    expect_conflict: false
+
+- id: lunch-conflict
+  request: "Book a 1-hour lunch next Tuesday at noon."
+  timezone: America/New_York
+  today: "2026-07-15"
+  fixtures:
+    - name: "Dentist"
+      date: "20260721"
+      time: "160000"
+      duration: 60
+  reference:
+    action: create
+    title: "Lunch"
+    timezone: America/New_York
+    start: "2026-07-21T12:00:00-04:00"
+    duration_minutes: 60
+  expected:
+    action: create
+    expect_conflict: true
+
+- id: standup-mwf
+  request: "Set up a team standup every Monday, Wednesday and Friday at 9:15am."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Team Standup"
+    timezone: America/New_York
+    start: "2026-08-03T09:15:00-04:00"
+    duration_minutes: 15
+    recurrence: {freq: WEEKLY, by_day: [MO, WE, FR]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+    require_weekdays: [MO, WE, FR]
+
+- id: standup-avoid-fridays
+  request: "Daily standup at 9am, but avoid Fridays."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Standup"
+    timezone: America/New_York
+    start: "2026-08-03T09:00:00-04:00"
+    duration_minutes: 15
+    recurrence: {freq: WEEKLY, by_day: [MO, TU, WE, TH]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH"
+    forbid_weekdays: [FR, SA, SU]
+
+- id: daily-count-10
+  request: "A daily reminder at 8am for the next 10 days."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Reminder"
+    timezone: America/New_York
+    start: "2026-08-03T08:00:00-04:00"
+    duration_minutes: 30
+    recurrence: {freq: DAILY, count: 10}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=DAILY;COUNT=10"
+    occurrence_count: 10
+
+- id: daily-until
+  request: "Daily check-in at 8am until August 10th."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Check-in"
+    timezone: America/New_York
+    start: "2026-08-03T08:00:00-04:00"
+    duration_minutes: 15
+    recurrence: {freq: DAILY, until: "2026-08-10"}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=DAILY;UNTIL=20260810T235959Z"
+
+- id: monthly-1st-15th
+  request: "Payroll review on the 1st and 15th of every month."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Payroll Review"
+    timezone: America/New_York
+    start: "2026-08-01T09:00:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: MONTHLY, by_month_day: [1, 15]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=MONTHLY;BYMONTHDAY=1,15"
+
+- id: monthly-first-monday
+  request: "All-hands on the first Monday of every month at 9am."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "All-Hands"
+    timezone: America/New_York
+    start: "2026-08-03T09:00:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: MONTHLY, by_day: [MO], by_set_pos: [1]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=MONTHLY;BYDAY=MO;BYSETPOS=1"
+    require_weekdays: [MO]
+
+- id: monthly-last-friday
+  request: "Retro on the last Friday of every month at 3pm."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Retro"
+    timezone: America/New_York
+    start: "2026-08-28T15:00:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: MONTHLY, by_day: [FR], by_set_pos: [-1]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=-1"
+    require_weekdays: [FR]
+
+- id: yearly-july4
+  request: "Annual picnic every July 4th at 10am."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Picnic"
+    timezone: America/New_York
+    start: "2027-07-04T10:00:00-04:00"
+    duration_minutes: 180
+    recurrence: {freq: YEARLY, by_month: [7], by_month_day: [4]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=YEARLY;BYMONTH=7;BYMONTHDAY=4"
+
+- id: biweekly-tuesday
+  request: "Every other Tuesday at 2pm for a design sync."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Design Sync"
+    timezone: America/New_York
+    start: "2026-08-04T14:00:00-04:00"
+    duration_minutes: 45
+    recurrence: {freq: WEEKLY, interval: 2, by_day: [TU]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+    require_weekdays: [TU]
+
+- id: weekdays-daily
+  request: "Every weekday at 8am."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Daily Kickoff"
+    timezone: America/New_York
+    start: "2026-08-03T08:00:00-04:00"
+    duration_minutes: 15
+    recurrence: {freq: WEEKLY, by_day: [MO, TU, WE, TH, FR]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+    require_weekdays: [MO, TU, WE, TH, FR]
+    forbid_weekdays: [SA, SU]
+
+- id: every-tuesday
+  request: "Team lunch every Tuesday at 12:30."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Team Lunch"
+    timezone: America/New_York
+    start: "2026-08-04T12:30:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: WEEKLY, by_day: [TU]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;BYDAY=TU"
+    require_weekdays: [TU]
+
+- id: dst-spring-forward
+  request: "Daily 9am standup for the week of the spring-forward change."
+  timezone: America/New_York
+  today: "2026-03-01"
+  reference:
+    action: create_recurring
+    title: "Standup"
+    timezone: America/New_York
+    start: "2026-03-07T09:00:00-05:00"
+    duration_minutes: 30
+    recurrence: {freq: DAILY, count: 4}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=DAILY;COUNT=4"
+    local_hour: 9
+    occurrence_count: 4
+
+- id: dst-fall-back
+  request: "Daily 9am standup across the fall-back weekend."
+  timezone: America/New_York
+  today: "2026-10-25"
+  reference:
+    action: create_recurring
+    title: "Standup"
+    timezone: America/New_York
+    start: "2026-10-31T09:00:00-04:00"
+    duration_minutes: 30
+    recurrence: {freq: DAILY, count: 4}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=DAILY;COUNT=4"
+    local_hour: 9
+    occurrence_count: 4
+
+- id: recurring-tuesday-conflict
+  request: "Weekly team sync Tuesdays at 10am."
+  timezone: America/New_York
+  today: "2026-07-15"
+  fixtures:
+    - name: "Existing 1:1"
+      date: "20260804"
+      time: "140000"
+      duration: 60
+  reference:
+    action: create_recurring
+    title: "Team Sync"
+    timezone: America/New_York
+    start: "2026-08-04T10:00:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: WEEKLY, by_day: [TU]}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;BYDAY=TU"
+    require_weekdays: [TU]
+    expect_conflict: true
+
+- id: biweekly-thursday-count
+  request: "Every other Thursday at 3pm, six times."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: create_recurring
+    title: "Sprint Review"
+    timezone: America/New_York
+    start: "2026-08-06T15:00:00-04:00"
+    duration_minutes: 60
+    recurrence: {freq: WEEKLY, interval: 2, by_day: [TH], count: 6}
+  expected:
+    action: create_recurring
+    rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH;COUNT=6"
+    require_weekdays: [TH]
+    occurrence_count: 6
+
+- id: update-appointment
+  request: "Move my dentist appointment to 4pm."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: update
+    title: "Dentist"
+    timezone: America/New_York
+    start: "2026-07-21T16:00:00-04:00"
+    duration_minutes: 60
+    target_event_id: 42
+  expected:
+    action: update
+
+- id: delete-series
+  request: "Cancel the Friday standup."
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: delete
+    title: ""
+    timezone: America/New_York
+    start: "2026-08-07T09:00:00-04:00"
+    target_event_id: 77
+  expected:
+    action: delete
+
+- id: query-week
+  request: "What does my week look like?"
+  timezone: America/New_York
+  today: "2026-07-15"
+  reference:
+    action: query
+    title: ""
+    timezone: America/New_York
+    start: "2026-07-20T00:00:00-04:00"
+  expected:
+    action: query
