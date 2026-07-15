@@ -71,6 +71,20 @@ def test_render_availability_with_busy() -> None:
     assert "Meeting" in text and "20260803" in text
 
 
+def test_render_date_only_move_keeps_time() -> None:
+    p = ScheduleProposal(
+        action=ScheduleAction.UPDATE,
+        title="Dog Grooming",
+        timezone="America/New_York",
+        start=datetime(2026, 7, 19, 0, 0, tzinfo=NY),  # midnight -> date-only move
+        target_event_id=5,
+    )
+    text = render_proposal(p)
+    assert "keeping the current time" in text
+    assert "2026-07-19" in text
+    assert "Target: event #5" in text
+
+
 def test_render_no_conflict_when_flag_false() -> None:
     p = ScheduleProposal(
         action=ScheduleAction.CREATE,

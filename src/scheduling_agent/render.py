@@ -20,10 +20,27 @@ def render_proposal(
     flagging any conflicts."""
     header = proposal.action.value.replace("_", " ").title()
     lines = [f"{header}: {proposal.title}".rstrip(": ")]
-    lines.append(
-        f"  When: {proposal.start.isoformat()} ({proposal.timezone})"
-        + (f", {proposal.duration_minutes} min" if proposal.duration_minutes else "")
+    start = proposal.start
+    is_date_only_move = (
+        proposal.action is ScheduleAction.UPDATE
+        and start.hour == 0
+        and start.minute == 0
+        and start.second == 0
     )
+    if is_date_only_move:
+        lines.append(
+            f"  When: {start.date().isoformat()} ({proposal.timezone}), "
+            "keeping the current time"
+        )
+    else:
+        lines.append(
+            f"  When: {start.isoformat()} ({proposal.timezone})"
+            + (
+                f", {proposal.duration_minutes} min"
+                if proposal.duration_minutes
+                else ""
+            )
+        )
     if (
         proposal.action in (ScheduleAction.UPDATE, ScheduleAction.DELETE)
         and proposal.target_event_id is not None

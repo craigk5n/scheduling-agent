@@ -245,6 +245,31 @@ def test_update_disambiguated_by_target_date() -> None:
     ).busy  # the other one untouched
 
 
+def test_move_preserves_time_and_name_on_date_only_move() -> None:
+    tools = FakeCalendarTools()
+    tools.add_recurring_event("Dog Grooming", "20260718", "FREQ=DAILY", time="140000")
+    move = {
+        "action": "update",
+        "title": "Dog Grooming",  # a search key, not a new name
+        "timezone": "America/New_York",
+        "start": "2026-07-19T00:00:00-04:00",  # midnight -> no new time (same time)
+        "target_date": "2026-07-18",
+    }
+    app = build_agent(_model(move), tools, MemorySaver())
+
+    paused = app.invoke(
+        {"request": "move july 18 grooming to sunday, same time"}, _cfg()
+    )
+    assert "keeping the current time" in paused["__interrupt__"][0].value["summary"]
+
+    done = app.invoke(Command(resume={"decision": "approve"}), _cfg())
+    assert "Done" in done["response"]
+    busy = tools.get_availability("20260719", "20260719").busy
+    assert busy[0].time == "140000"  # original time preserved (not clobbered)
+    assert busy[0].name == "Dog Grooming"  # not renamed to the search term
+    assert tools.get_availability("20260718", "20260718").busy == []
+
+
 def test_update_target_date_no_match_errors() -> None:
     tools = FakeCalendarTools()
     tools.add_recurring_event("Dog Grooming", "20260718", "FREQ=DAILY", time="140000")

@@ -49,6 +49,7 @@ class AgentState(TypedDict, total=False):
     availability: AvailabilityResult | None
     conflicts: ConflictResult | None
     approved: bool
+    resolved_by_search: bool
     result: WriteResult | None
     verified: bool
     response: str
@@ -58,6 +59,12 @@ class AgentState(TypedDict, total=False):
 def _gmt(proposal: ScheduleProposal) -> tuple[str, str]:
     dt = proposal.start.astimezone(UTC)
     return dt.strftime("%Y%m%d"), dt.strftime("%H%M%S")
+
+
+def _is_time_unspecified(dt: datetime) -> bool:
+    """Midnight local time means the model gave a date but no time-of-day —
+    i.e. a pure date move where the event's current time should be kept."""
+    return dt.hour == 0 and dt.minute == 0 and dt.second == 0
 
 
 def _parse_intent(state: AgentState, model: BaseChatModel) -> dict[str, Any]:
@@ -114,7 +121,8 @@ def _resolve_target(proposal: ScheduleProposal, tools: CalendarTools) -> dict[st
             )
         }
     resolved = proposal.model_copy(update={"target_event_id": matches[0].id})
-    return {"proposal": resolved}
+    # Flag that the title was a search key (so execute won't rename the event).
+    return {"proposal": resolved, "resolved_by_search": True}
 
 
 def _propose(state: AgentState) -> dict[str, Any]:
@@ -187,11 +195,17 @@ def _execute(state: AgentState, tools: CalendarTools) -> dict[str, Any]:
             proposal.location,
         )
     elif action is ScheduleAction.UPDATE:
+        # A title used to *find* the event (search-resolved) must not be sent as
+        # a new name, or a search term would rename the event. And a move with
+        # no new time (midnight local) keeps the event's current time.
+        resolved_by_search = state.get("resolved_by_search", False)
+        name = None if resolved_by_search else (proposal.title or None)
+        keep_time = _is_time_unspecified(proposal.start)
         result = tools.update_event(
             proposal.target_event_id or 0,
-            name=proposal.title or None,
+            name=name,
             date=date,
-            time=time,
+            time=None if keep_time else time,
             duration=proposal.duration_minutes or None,
         )
     else:  # DELETE
