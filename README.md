@@ -7,22 +7,7 @@ to a live [WebCalendar](https://github.com/craigk5n/webcalendar)
 instance via MCP — with human approval before every write, an eval
 suite for RRULE/DST correctness, and full tracing.
 
-**Status: Phases 0–4 complete and verified against a live calendar.**
-Agent core, eval suite, observability, chaos tests, CLI + web UI, and Docker,
-tested offline (**186 tests, 100% coverage**; ruff, mypy `--strict`, bandit).
-The supporting MCP tools are merged into
-[WebCalendar](https://github.com/craigk5n/webcalendar):
-[#668](https://github.com/craigk5n/webcalendar/pull/668) (scheduling tools),
-[#670](https://github.com/craigk5n/webcalendar/pull/670) (timed `add_event`),
-and [#671](https://github.com/craigk5n/webcalendar/pull/671) (read tools
-exclude UI-deleted events).
-
-Since then it has run against a **live** WebCalendar instance, which drove a
-series of fixes: local timezone handling for listing queries, time-preserving
-date moves, description-based event lookup, and native `json_schema`
-structured output. Providers now include a local-model path
-(**ollama** / **LM Studio**) alongside the Anthropic API, OpenRouter, and an
-Anthropic Pro/Max subscription. Docs:
+## Docs
 
 - [docs/PRD.md](docs/PRD.md) — goals, requirements, decisions, risks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, agent
