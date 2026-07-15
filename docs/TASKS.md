@@ -126,15 +126,24 @@ DST/constraint/conflict scoring machinery over a 20-case golden set.
 
 ## Phase 4 — Observability, deployment, story
 
-- [ ] LangSmith tracing enabled end-to-end; sample traces linked in README
-- [ ] Structured JSON logging with per-conversation correlation ids
-- [ ] Dockerfile + docker-compose (agent + WebCalendar [+ k5n-mcp-hub])
-- [ ] Chaos testing via k5n-mcp-hub fault injection; findings in
-      `docs/CHAOS.md`
-- [ ] Thin web UI (FastAPI + minimal chat page) reusing the same graph
-- [ ] README finalized: architecture diagram, demo transcript/GIF,
-      eval results table, design decisions
-- [ ] Blog post draft for k5n.us (optional, follows the ilibgo pattern)
+- [x] LangSmith tracing (auto-enabled by LangChain when LANGSMITH_* set;
+      `tracing_enabled()` reports it, startup line shows state)
+- [x] Structured JSON logging with per-conversation correlation ids
+      (`observability.py`; wired into the CLI per turn)
+- [x] Dockerfile + docker-compose (agent + WebCalendar, optional
+      k5n-mcp-hub via `--profile chaos`); image build verified
+- [x] Chaos testing: k5n-mcp-hub fault modes simulated via MockTransport,
+      client wraps all faults into `McpError`, REPL degrades gracefully;
+      findings in `docs/CHAOS.md`
+- [x] Thin web UI (FastAPI `/schedule` + `/approve` + chat page) reusing
+      the same graph; `scheduling-agent-web` entry point
+- [x] README finalized: mermaid architecture diagram, eval results,
+      design decisions, known limitations
+- [ ] Demo transcript/GIF + blog post for k5n.us (optional; needs a live
+      run against a real provider/instance)
+
+**Phase 4 done.** Full gate: **156 tests, 100% coverage.** Only the
+optional demo/blog and the live-instance verification remain.
 
 ## Phase 5 — A2A negotiation (post-v1)
 

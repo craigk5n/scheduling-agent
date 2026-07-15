@@ -7,23 +7,37 @@ to a live [WebCalendar](https://github.com/craigk5n/webcalendar)
 instance via MCP — with human approval before every write, an eval
 suite for RRULE/DST correctness, and full tracing.
 
-**Status: the agent core works** (Phases 0–2 complete). The WebCalendar
-MCP tools are merged-pending in
-[craigk5n/webcalendar#668](https://github.com/craigk5n/webcalendar/pull/668).
-Not yet done: verification against a live calendar instance, the eval
-suite (Phase 3), and tracing/Docker (Phase 4). See the docs:
+**Status: Phases 0–4 complete** — agent core, MCP tools (merged into
+[WebCalendar](https://github.com/craigk5n/webcalendar) via
+[#668](https://github.com/craigk5n/webcalendar/pull/668)), eval suite,
+observability, chaos tests, CLI + web UI, and Docker. Everything is
+tested offline (**156 tests, 100% coverage**; ruff, mypy `--strict`,
+bandit). The one deferred piece is verification against a **live**
+calendar instance. Docs:
 
 - [docs/PRD.md](docs/PRD.md) — goals, requirements, decisions, risks
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, agent
   graph, model provider abstraction, MCP tool surface, eval design
 - [docs/SCHEMA_AUDIT.md](docs/SCHEMA_AUDIT.md) — WebCalendar recurrence ↔ RRULE
+- [docs/CHAOS.md](docs/CHAOS.md) — MCP fault tolerance (k5n-mcp-hub)
 - [docs/TASKS.md](docs/TASKS.md) — phased task list
 
 ## The short version
 
-```
-NL request → LangGraph (parse_intent → gather_context → propose →
-human_approval [interrupt] → execute → verify → respond) → WebCalendar via MCP
+```mermaid
+flowchart LR
+    U[NL request] --> P[parse_intent]
+    P --> G[gather_context]
+    G --> PR[propose]
+    PR -->|query / error| R[respond]
+    PR -->|create/update/delete| H{{human_approval\ninterrupt}}
+    H -->|reject + feedback| P
+    H -->|approve| E[execute]
+    E --> V[verify]
+    V --> R
+    G -. MCP .-> WC[(WebCalendar mcp.php)]
+    E -. MCP .-> WC
+    V -. MCP .-> WC
 ```
 
 - **Orchestration:** LangGraph — stateful graph, SQLite checkpointing,
@@ -54,8 +68,27 @@ You describe what to schedule; the agent plans, shows you a proposal
 (with the recurrence expanded and any conflicts flagged), and **waits
 for your approval** before writing anything. Type `quit` to exit.
 
+Web UI (same graph, `POST /schedule` + `POST /approve` + a chat page):
+
+```bash
+uv run scheduling-agent-web         # http://localhost:8000
+```
+
+Or the whole stack in Docker (agent + WebCalendar; add `--profile chaos`
+for k5n-mcp-hub fault injection):
+
+```bash
+docker compose up --build
+```
+
 Everything runs offline in tests via an in-memory calendar and a fake
 model, so no API key or live instance is needed to develop.
+
+### Observability
+
+Structured JSON logs carry a per-conversation `correlation_id`. Set
+`LANGSMITH_TRACING=true` + `LANGSMITH_API_KEY` to trace every graph run
+in LangSmith (the startup line reports whether tracing is on).
 
 ## Evals
 
@@ -86,6 +119,36 @@ Live-calendar URLs, tokens, and API keys are never committed.
 | `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` | credential for the selected provider |
 | `MODEL_NAME` | optional model override |
 | `MCP_URL` / `MCP_TOKEN` | WebCalendar `mcp.php` endpoint + API token |
+
+## Design decisions
+
+- **Validate recurrence before sending.** `rrule.py` is a Python twin of
+  WebCalendar's server-side validator, derived from a
+  [schema audit](docs/SCHEMA_AUDIT.md) of `webcal_entry_repeats`. The
+  agent never proposes a rule the backend can't store/expand.
+- **HITL is a real graph interrupt.** Writes pause at a LangGraph
+  `interrupt`; state is checkpointed to SQLite, so an approval survives a
+  process restart (proven in tests). Rejections loop back and replan.
+- **One repair loop for all providers.** Structured output is produced by
+  a provider-agnostic validate-and-repair loop rather than native tool
+  calling, so the Pro/Max subscription backend works on equal footing —
+  and provider differences become a measured eval number, not a bug class.
+- **GMT at the tool boundary.** The scheduling MCP tools operate in the
+  storage frame; the agent owns local↔GMT (with DST-correct expansion),
+  keeping the PHP side simple.
+- **Direct JSON-RPC client.** `mcp.php`'s HTTP transport is custom
+  JSON-RPC (not standard-MCP), so a small httpx client fits better than
+  `langchain-mcp-adapters`. Every transport/protocol fault is wrapped
+  into one `McpError` ([chaos-tested](docs/CHAOS.md)).
+- **Evals split for a keyless CI.** Deterministic scorers gate CI over a
+  golden dataset (20/20); a real provider is measured opt-in via
+  `--mode agent`.
+
+**Known v1 limitations (documented):** one-off `create` events are stored
+untimed (the `add_event` MCP tool takes no time yet); availability and
+conflict checks don't expand recurring occurrences past the base date.
+Both are slated for a backend follow-up and are what live-instance eval
+runs will quantify.
 
 ## Development
 
