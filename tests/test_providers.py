@@ -13,6 +13,7 @@ from scheduling_agent.providers import (
     DEFAULT_ANTHROPIC_MODEL,
     ClaudeSubscriptionChatModel,
     get_chat_model,
+    structured_output_method,
 )
 from scheduling_agent.settings import ModelProvider, Settings
 
@@ -24,7 +25,9 @@ _CRED = {
 
 
 def _settings(provider: str, model: str | None = None) -> Settings:
-    env = {"MODEL_PROVIDER": provider, _CRED[provider]: "secret"}
+    env = {"MODEL_PROVIDER": provider}
+    if provider in _CRED:  # local providers need no credential
+        env[_CRED[provider]] = "secret"
     if model:
         env["MODEL_NAME"] = model
     return Settings.from_env(env)
@@ -92,6 +95,15 @@ def test_local_provider_needs_no_credential() -> None:
     settings = Settings.from_env({"MODEL_PROVIDER": "ollama"})
     assert settings.model_provider is ModelProvider.OLLAMA
     assert get_chat_model(settings) is not None
+
+
+def test_structured_output_method_per_provider() -> None:
+    assert structured_output_method(_settings("ollama")) == "json_schema"
+    assert structured_output_method(_settings("lmstudio")) == "json_schema"
+    assert structured_output_method(_settings("openrouter")) == "json_schema"
+    # Anthropic and the subscription CLI use the repair loop (no native method).
+    assert structured_output_method(_settings("anthropic")) is None
+    assert structured_output_method(_settings("claude-subscription")) is None
 
 
 def test_subscription_generate_uses_cli_output(

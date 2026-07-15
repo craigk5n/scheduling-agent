@@ -2,9 +2,10 @@
 
 The graph depends only on ``langchain_core``'s ``BaseChatModel``; this factory
 selects the backend from settings so provider choice is invisible above it.
-Structured output is handled uniformly by the repair loop in ``structured``
-(not provider-native tool calling), so even the subscription adapter — which
-cannot enforce schemas — participates on equal footing.
+Structured output prefers a provider-native ``json_schema`` method when
+available (see ``structured_output_method``) and otherwise falls back to the
+validate-and-repair loop in ``structured`` — so every provider, including the
+subscription CLI that cannot enforce schemas, produces valid output.
 """
 
 from __future__ import annotations
@@ -32,6 +33,22 @@ DEFAULT_LOCAL_MODEL: dict[ModelProvider, str] = {
     ModelProvider.OLLAMA: "llama3.1",
     ModelProvider.LMSTUDIO: "local-model",
 }
+
+#: Providers whose OpenAI-compatible endpoint supports native json_schema
+#: structured output. The agent tries it first and falls back to the
+#: validate-and-repair loop if the specific model doesn't support it.
+_STRUCTURED_OUTPUT_METHOD: dict[ModelProvider, str] = {
+    ModelProvider.OLLAMA: "json_schema",
+    ModelProvider.LMSTUDIO: "json_schema",
+    ModelProvider.OPENROUTER: "json_schema",
+}
+
+
+def structured_output_method(settings: Settings) -> str | None:
+    """Native structured-output method to prefer for the provider, or None to
+    use the text repair loop (e.g. the subscription CLI)."""
+    return _STRUCTURED_OUTPUT_METHOD.get(settings.model_provider)
+
 
 # System prompt for the subscription (claude CLI) path: strip the coding-agent
 # persona so it behaves as a plain structured-output completion.

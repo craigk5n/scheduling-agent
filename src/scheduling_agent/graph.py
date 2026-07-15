@@ -67,7 +67,9 @@ def _is_time_unspecified(dt: datetime) -> bool:
     return dt.hour == 0 and dt.minute == 0 and dt.second == 0
 
 
-def _parse_intent(state: AgentState, model: BaseChatModel) -> dict[str, Any]:
+def _parse_intent(
+    state: AgentState, model: BaseChatModel, method: str | None
+) -> dict[str, Any]:
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
     messages = [
         SystemMessage(content=_PARSE_SYSTEM.format(today=today)),
@@ -78,7 +80,7 @@ def _parse_intent(state: AgentState, model: BaseChatModel) -> dict[str, Any]:
         messages.append(
             HumanMessage(content=f"Revise the previous plan given: {feedback}")
         )
-    proposal = structured_call(model, messages, ScheduleProposal)
+    proposal = structured_call(model, messages, ScheduleProposal, method=method)
     return {"proposal": proposal, "feedback": None, "error": None}
 
 
@@ -247,10 +249,22 @@ def _respond(state: AgentState) -> dict[str, Any]:
     return {"response": f"That didn't succeed: {reason}"}
 
 
-def build_agent(model: BaseChatModel, tools: CalendarTools, checkpointer: Any) -> Any:
-    """Compile the scheduling agent graph with an interrupt-capable checkpointer."""
+def build_agent(
+    model: BaseChatModel,
+    tools: CalendarTools,
+    checkpointer: Any,
+    *,
+    structured_method: str | None = None,
+) -> Any:
+    """Compile the scheduling agent graph with an interrupt-capable checkpointer.
+
+    ``structured_method`` (e.g. "json_schema") enables provider-native
+    structured output for parsing, with a repair-loop fallback.
+    """
     builder = StateGraph(AgentState)
-    builder.add_node("parse_intent", lambda s: _parse_intent(s, model))
+    builder.add_node(
+        "parse_intent", lambda s: _parse_intent(s, model, structured_method)
+    )
     builder.add_node("gather_context", lambda s: _gather_context(s, tools))
     builder.add_node("propose", _propose)
     builder.add_node("human_approval", _human_approval)

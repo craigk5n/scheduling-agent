@@ -124,11 +124,17 @@ Live-calendar URLs, tokens, and API keys are never committed.
 | `OLLAMA_BASE_URL` / `LMSTUDIO_BASE_URL` | override the local endpoint (defaults `:11434/v1` / `:1234/v1`) |
 | `MCP_URL` / `MCP_TOKEN` | WebCalendar `mcp.php` endpoint + API token |
 
-> **Local models:** small models may struggle with strict JSON and RRULE
-> reasoning; the validate-and-repair loop retries on invalid output, but a
-> capable instruct model helps. Measure any model with
-> `python -m scheduling_agent.evals --mode agent` (scores it on the golden
-> set).
+> **Local models & structured output:** `ollama`, `lmstudio`, and
+> `openrouter` use **native `json_schema` structured output** when the model
+> supports it — the model is constrained to emit a valid `ScheduleProposal`,
+> which is far more reliable than free-text. If the model/server doesn't
+> support it, the agent automatically falls back to the validate-and-repair
+> loop (the subscription CLI always uses the loop). Support is **per model**:
+> use a structured-output-capable one — e.g. **Qwen2.5**, **Llama-3.1/3.2**,
+> **Mistral-Nemo**, **Command-R**, **Hermes** (in LM Studio, look for the
+> "tool use" badge). Small/base models may struggle with the schema and RRULE
+> reasoning regardless — measure any model with
+> `python -m scheduling_agent.evals --mode agent`.
 
 ## Design decisions
 

@@ -24,7 +24,7 @@ from scheduling_agent.observability import (
     set_correlation_id,
     tracing_enabled,
 )
-from scheduling_agent.providers import get_chat_model
+from scheduling_agent.providers import get_chat_model, structured_output_method
 from scheduling_agent.settings import Settings
 
 _APPROVE_WORDS = {"y", "yes", "approve", "ok"}
@@ -38,7 +38,12 @@ def build_cli_agent(
     """Wire a model + live MCP calendar tools + graph into a runnable agent."""
     model = get_chat_model(settings)
     tools = HttpMcpCalendarTools(mcp_url, mcp_token)
-    return build_agent(model, tools, checkpointer)
+    return build_agent(
+        model,
+        tools,
+        checkpointer,
+        structured_method=structured_output_method(settings),
+    )
 
 
 def _prompt_decision(

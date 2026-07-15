@@ -29,14 +29,62 @@ def structured_call[T: BaseModel](
     messages: Sequence[BaseMessage],
     schema: type[T],
     *,
+    method: str | None = None,
     max_retries: int = 2,
 ) -> T:
-    """Invoke ``model`` and return an instance of ``schema``, repairing on failure.
+    """Return an instance of ``schema`` from ``model``.
+
+    When ``method`` is given (e.g. ``"json_schema"``), native structured output
+    is attempted first — the provider constrains the model to the schema. On any
+    failure (an endpoint that doesn't support it, or a model like the
+    subscription CLI that can't), it falls back to a validate-and-repair loop
+    over plain text.
 
     Raises:
-        StructuredOutputError: if no valid instance is produced within
-            ``max_retries`` repair attempts.
+        StructuredOutputError: if no valid instance is produced.
     """
+    if method is not None:
+        native = _native_structured_output(model, messages, schema, method)
+        if native is not None:
+            return native
+    return _repair_loop(model, messages, schema, max_retries)
+
+
+def _native_structured_output[T: BaseModel](
+    model: BaseChatModel,
+    messages: Sequence[BaseMessage],
+    schema: type[T],
+    method: str,
+) -> T | None:
+    """Try provider-native structured output; return None to signal fallback."""
+    provider = type(model).__name__
+    try:
+        structured = model.with_structured_output(schema, method=method)
+    except (NotImplementedError, ValueError, TypeError) as exc:
+        log_event("structured_unsupported", provider=provider, error=str(exc)[:200])
+        return None
+    log_event("llm_invoke", provider=provider, schema=schema.__name__, mode=method)
+    start = time.monotonic()
+    try:
+        result = structured.invoke(list(messages))
+    except Exception as exc:  # noqa: BLE001 - any failure falls back to repair
+        log_event("structured_fallback", provider=provider, error=str(exc)[:200])
+        return None
+    log_event(
+        "llm_response",
+        provider=provider,
+        mode=method,
+        elapsed_ms=round((time.monotonic() - start) * 1000),
+    )
+    return result if isinstance(result, schema) else None
+
+
+def _repair_loop[T: BaseModel](
+    model: BaseChatModel,
+    messages: Sequence[BaseMessage],
+    schema: type[T],
+    max_retries: int,
+) -> T:
     conversation: list[BaseMessage] = [
         *messages,
         HumanMessage(content=_instruction(schema)),
